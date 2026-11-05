@@ -338,3 +338,15 @@ textarea.text-input { resize: vertical; }
 .draft-status { flex: 1 1 100%; margin: 0 0 2px; color: var(--muted); font-size: 12px; line-height: 1.4; }
 .draft-status.dirty { color: var(--red); font-weight: 750; }
 @media (max-width: 390px) { .task-dialog-footer { padding: 14px 16px 18px; } }
+
+
+/* MyDay 1.0 — only visible when local storage is unreadable. */
+.storage-warning { display: flex; flex-direction: column; gap: 13px; background: var(--surface); border: 2px solid var(--red); border-radius: 16px; padding: 18px; margin-top: 12px; }
+.storage-warning[hidden] { display: none; }
+.storage-warning h2 { font-size: 17px; line-height: 1.4; color: var(--red); }
+.storage-warning p { margin: 7px 0 0; color: var(--ink); font-size: 13px; line-height: 1.55; }
+.storage-warning-actions { display: flex; flex-wrap: wrap; gap: 9px; }
+.storage-warning-actions button { min-height: 42px; border-radius: 10px; background: var(--accent-soft); color: var(--accent-text); border: 1px solid var(--border); font-weight: 750; font-size: 13px; padding: 10px 13px; }
+.storage-warning-actions button[hidden] { display: none; }
+.offline-status { color: var(--accent-text); font-weight: 750; }
+.offline-status[hidden] { display: none; }

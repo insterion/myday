@@ -19,6 +19,11 @@
   const el = (id) => document.getElementById(id);
   const icon = (name) => `<svg class="icon" aria-hidden="true"><use href="#i-${name}"></use></svg>`;
   const MAX_SUBTASKS = 30;
+  // Never replace an unreadable localStorage value with an empty task list.
+  let storageProblem = null; // 'damaged' | 'unavailable' | null
+  let damagedRaw = null;
+  let lastSavedRaw = null;
+  let editorOutdated = false;
   let tasks = readTasks();
   let sortMode = 'date';
   let view = 'today';
@@ -125,22 +130,52 @@
     };
   }
   function readTasks() {
+    let raw;
+    try { raw = localStorage.getItem(TASKS_KEY); }
+    catch {
+      storageProblem = 'unavailable';
+      lastSavedRaw = null;
+      return [];
+    }
+    lastSavedRaw = raw;
+    if (raw === null) { storageProblem = null; damagedRaw = null; return []; }
     try {
-      const data = JSON.parse(localStorage.getItem(TASKS_KEY) || '[]');
-      if (!Array.isArray(data)) return [];
-      return data.map(normalizeTask).filter(Boolean);
+      const data = JSON.parse(raw);
+      if (!Array.isArray(data)) throw new Error('Expected a task array');
+      const normalized = data.map(normalizeTask);
+      if (normalized.some((item) => !item)) throw new Error('Invalid task record');
+      const ids = normalized.map((item) => item.id);
+      if (new Set(ids).size !== ids.length) throw new Error('Duplicate task IDs');
+      storageProblem = null;
+      damagedRaw = null;
+      return normalized;
     } catch {
+      storageProblem = 'damaged';
+      damagedRaw = raw;
       return [];
     }
   }
   function saveTasks(next) {
+    if (storageProblem) {
+      showToast('Записът е блокиран за защита на данните. Виж предупреждението горе.');
+      return false;
+    }
     try {
-      localStorage.setItem(TASKS_KEY, JSON.stringify(next));
+      // A second browser tab may have newer data. Do not silently overwrite it.
+      if (localStorage.getItem(TASKS_KEY) !== lastSavedRaw) {
+        tasks = readTasks();
+        render();
+        showToast('Задачите са променени в друг прозорец. Провери списъка и опитай отново.');
+        return false;
+      }
+      const serialized = JSON.stringify(next);
+      localStorage.setItem(TASKS_KEY, serialized);
+      lastSavedRaw = serialized;
       tasks = next;
       render();
       return true;
     } catch {
-      showToast('Няма място за запис. Запази backup и освободи пространство.');
+      showToast('Неуспешен запис. Провери свободното място и направи backup.');
       return false;
     }
   }
@@ -443,6 +478,8 @@
     }
   }
   function render() {
+    renderStorageWarning();
+    updateOfflineStatus();
     renderHeader();
     renderCalendar();
     renderQuickAdd();
@@ -566,6 +603,7 @@
     status.classList.toggle('dirty', changed);
   }
   function openEditor(task = null) {
+    editorOutdated = false;
     editingId = task ? task.id : null;
     el('taskForm').reset();
     el('dialogTitle').textContent = task ? 'Редактирай задача' : 'Нова задача';
@@ -592,15 +630,21 @@
     if (hasUnsavedEditorChanges() && !confirm('Има незапазени промени. Да затворя ли без да ги запазя?')) return;
     el('taskDialog').close();
     editingId = null;
+    editorOutdated = false;
     editorInitialState = '';
   }
   function closeEditorAfterSave() {
     el('taskDialog').close();
     editingId = null;
+    editorOutdated = false;
     editorInitialState = '';
   }
   function handleSubmit(event) {
     event.preventDefault();
+    if (editorOutdated) {
+      showToast('Задачите са променени в друг прозорец. Затвори редактора и отвори отново, за да няма загуба на данни.');
+      return;
+    }
     const title = el('taskTitle').value.trim();
     const date = el('taskDate').value;
     if (!title) { el('taskTitle').focus(); return; }
@@ -755,7 +799,45 @@
     el('trashDialog').showModal();
   }
   function closeTrash() { el('trashDialog').close(); }
+  function downloadOriginalData() {
+    if (storageProblem !== 'damaged' || damagedRaw === null) return;
+    const blob = new Blob([damagedRaw], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `myday-original-data-${localDate()}.txt`;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    showToast('Оригиналните данни са подготвени. Провери Downloads, преди да възстановяваш backup.');
+  }
+  function renderStorageWarning() {
+    const warning = el('storageWarning');
+    warning.hidden = !storageProblem;
+    if (!storageProblem) return;
+    if (storageProblem === 'damaged') {
+      el('storageWarningTitle').textContent = 'Записът на задачите не може да се прочете';
+      el('storageWarningText').textContent = 'Данните НЕ са изтрити. За да не бъдат презаписани, новите записи са спрени. Първо запази оригиналните данни, после зареди твой валиден MyDay backup.';
+      el('downloadRecovery').hidden = false;
+      el('restoreRecovery').hidden = false;
+    } else {
+      el('storageWarningTitle').textContent = 'Браузърът не позволява запис на задачи';
+      el('storageWarningText').textContent = 'Отвори MyDay в обикновен прозорец на Chrome (не Incognito) и провери дали съхранението е разрешено.';
+      el('downloadRecovery').hidden = true;
+      el('restoreRecovery').hidden = true;
+    }
+  }
+  function updateOfflineStatus() {
+    // Browser connectivity is only a hint; cached files enable true offline use.
+    el('offlineStatus').hidden = navigator.onLine !== false;
+  }
   function exportBackup() {
+    if (storageProblem) {
+      showToast('Backup не е създаден: записът не може да се прочете. Използвай предупреждението горе.');
+      el('toolsMenu').open = false;
+      return;
+    }
     // Soft-deleted tasks remain in this same array, so backups preserve the trash as well.
     const backup = { app: 'MyDay', version: 6, exportedAt: new Date().toISOString(), tasks };
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
@@ -778,6 +860,12 @@
       if (backup.app !== 'MyDay' || ![1, 2, 3, 4, 5, 6].includes(backup.version) || !Array.isArray(backup.tasks) || backup.tasks.length > 5000) {
         throw new Error('Това не е съвместим MyDay backup файл.');
       }
+      // Every record needs its own persistent ID, including backups from 0.1.
+      // Otherwise re-importing could silently create duplicate copies.
+      if (backup.tasks.some((item) => !item || typeof item !== 'object' || Array.isArray(item) ||
+          typeof item.id !== 'string' || !item.id.trim())) {
+        throw new Error('Backup съдържа запис без валиден идентификатор. Нищо не е променено.');
+      }
       const imported = backup.tasks.map(normalizeTask);
       if (imported.some((task) => !task)) throw new Error('Някои задачи във файла са невалидни. Нищо не е променено.');
       const importIds = new Set();
@@ -785,6 +873,24 @@
         if (importIds.has(task.id)) throw new Error('Backup файлът съдържа повтарящи се идентификатори. Нищо не е променено.');
         importIds.add(task.id);
       }
+      // A damaged local record must be consciously replaced, never merged with []
+      // or overwritten by adding a new task. Backups are validated first.
+      if (storageProblem === 'damaged') {
+        if (!imported.length) throw new Error('Backup файлът няма задачи. Няма да заменя повредения запис с празен списък.');
+        if (!confirm('ВНИМАНИЕ: локалният запис е повреден.\n\nУвери се, че си изтеглил оригиналните данни като .txt файл.\n\nТози импорт ще ЗАМЕНИ повредения запис с проверените задачи от backup файла. Да продължа?')) return;
+        try {
+          const serialized = JSON.stringify(imported);
+          localStorage.setItem(TASKS_KEY, serialized);
+          tasks = imported;
+          lastSavedRaw = serialized;
+          storageProblem = null;
+          damagedRaw = null;
+          render();
+          showToast(`Възстановени ${imported.length} задачи от backup. Проверявай списъка.`);
+        } catch { showToast('Възстановяването не успя. Оригиналните данни са запазени.'); }
+        return;
+      }
+      if (storageProblem) throw new Error('Браузърът не позволява запис.');
       const known = new Set(tasks.map((task) => task.id));
       const fresh = imported.filter((task) => !known.has(task.id));
       const alreadyHere = imported.length - fresh.length;
@@ -916,6 +1022,17 @@
     });
     el('clearDate').addEventListener('click', () => { el('taskDate').value = ''; });
     el('taskDialog').addEventListener('click', (event) => { if (event.target === el('taskDialog')) closeEditor(); });
+    el('downloadRecovery').addEventListener('click', downloadOriginalData);
+    el('restoreRecovery').addEventListener('click', () => el('importFile').click());
+    window.addEventListener('online', updateOfflineStatus);
+    window.addEventListener('offline', updateOfflineStatus);
+    window.addEventListener('storage', (event) => {
+      if (event.key !== TASKS_KEY) return;
+      if (el('taskDialog').open) editorOutdated = true;
+      tasks = readTasks();
+      render();
+      showToast(editorOutdated ? 'Има промени в друг прозорец. Затвори редактора и отвори задачата отново.' : 'Задачите са обновени от друг прозорец.');
+    });
     el('trashButton').addEventListener('click', openTrash);
     el('closeTrash').addEventListener('click', closeTrash);
     el('closeTrashBottom').addEventListener('click', closeTrash);
@@ -933,7 +1050,11 @@
     document.addEventListener('visibilitychange', () => { if (!document.hidden) render(); });
     render();
     if ('serviceWorker' in navigator && location.protocol !== 'file:') {
-      window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' }).catch(() => {
+          // Tasks still work online; the browser may prevent offline installation.
+        });
+      });
     }
   }
   init();
