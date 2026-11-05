@@ -1,0 +1,344 @@
+(() => {
+  'use strict';
+
+  const TASKS_KEY = 'myday.tasks.v1';
+  const THEME_KEY = 'myday.theme.v1';
+  const CATEGORIES = {
+    work: 'Работа', personal: 'Лични', shopping: 'Пазаруване', other: 'Други'
+  };
+  const VIEWS = {
+    today: ['Твоят фокус', 'Задачи за днес'],
+    upcoming: ['Планирай спокойно', 'Предстоящи задачи'],
+    all: ['Всичко на едно място', 'Всички активни задачи'],
+    done: ['Малките победи', 'Изпълнени задачи']
+  };
+  const el = (id) => document.getElementById(id);
+  const icon = (name) => `<svg class="icon" aria-hidden="true"><use href="#i-${name}"></use></svg>`;
+  let tasks = readTasks();
+  let view = 'today';
+  let editingId = null;
+  let toastTimer = null;
+
+  function localDate(date = new Date()) {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+  function isValidDate(value) {
+    if (value === '') return true;
+    if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+    const date = new Date(`${value}T12:00:00`);
+    return !Number.isNaN(date.getTime()) && localDate(date) === value;
+  }
+  function safeString(value, max) {
+    return typeof value === 'string' ? value.slice(0, max) : '';
+  }
+  function normalizeTask(raw) {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+    const title = safeString(raw.title, 160).trim();
+    const date = safeString(raw.date, 10);
+    if (!title || !isValidDate(date)) return null;
+    return {
+      id: safeString(raw.id, 100) || makeId(),
+      title,
+      note: safeString(raw.note, 1500),
+      date,
+      category: Object.hasOwn(CATEGORIES, raw.category) ? raw.category : 'other',
+      priority: raw.priority === 'high' ? 'high' : 'normal',
+      done: raw.done === true,
+      createdAt: safeString(raw.createdAt, 30) || new Date().toISOString(),
+      completedAt: raw.done === true ? (safeString(raw.completedAt, 30) || new Date().toISOString()) : null
+    };
+  }
+  function readTasks() {
+    try {
+      const data = JSON.parse(localStorage.getItem(TASKS_KEY) || '[]');
+      if (!Array.isArray(data)) return [];
+      return data.map(normalizeTask).filter(Boolean);
+    } catch {
+      return [];
+    }
+  }
+  function saveTasks(next) {
+    try {
+      localStorage.setItem(TASKS_KEY, JSON.stringify(next));
+      tasks = next;
+      render();
+      return true;
+    } catch {
+      showToast('Няма място за запис. Запази backup и освободи пространство.');
+      return false;
+    }
+  }
+  function makeId() {
+    return typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  }
+  function escapeHtml(input) {
+    return String(input).replace(/[&<>"']/g, (char) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    })[char]);
+  }
+  function prettyDate(value) {
+    if (!value) return 'Без дата';
+    const today = localDate();
+    if (value === today) return 'Днес';
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    if (value === localDate(tomorrow)) return 'Утре';
+    return new Intl.DateTimeFormat('bg-BG', { day: 'numeric', month: 'short' })
+      .format(new Date(`${value}T12:00:00`));
+  }
+  function greeting() {
+    const hour = new Date().getHours();
+    return hour < 11 ? 'Добро утро' : hour < 18 ? 'Добър ден' : 'Добър вечер';
+  }
+  function showToast(message) {
+    el('toast').textContent = message;
+    el('toast').classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el('toast').classList.remove('show'), 3100);
+  }
+
+  function renderHeader() {
+    const today = localDate();
+    const active = tasks.filter((task) => !task.done);
+    const todayOpen = active.filter((task) => task.date && task.date <= today);
+    const upcoming = active.filter((task) => task.date > today);
+    // Use the phone's local date, not UTC, when calculating today's achievements.
+    const completedLocallyToday = tasks.filter((task) => task.done && task.completedAt && localDate(new Date(task.completedAt)) === today);
+    const count = todayOpen.length + completedLocallyToday.length;
+    const pct = count ? Math.round(completedLocallyToday.length / count * 100) : 0;
+
+    el('countToday').textContent = todayOpen.length;
+    el('countUpcoming').textContent = upcoming.length;
+    el('countAll').textContent = active.length;
+    el('countDone').textContent = tasks.length - active.length;
+    el('progressCount').textContent = `${completedLocallyToday.length} / ${count}`;
+    el('progressPercent').textContent = `${pct}%`;
+    el('progressFill').style.width = `${pct}%`;
+    el('greeting').innerHTML = `${greeting()}<span class="hero-accent">.</span>`;
+    el('dateLabel').textContent = new Intl.DateTimeFormat('bg-BG', {
+      weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+    }).format(new Date());
+  }
+
+  function getVisibleTasks() {
+    const today = localDate();
+    const q = el('searchInput').value.trim().toLocaleLowerCase('bg-BG');
+    const category = el('categoryFilter').value;
+    let result = tasks.filter((task) => {
+      if (view === 'today' && (task.done || !task.date || task.date > today)) return false;
+      if (view === 'upcoming' && (task.done || !task.date || task.date <= today)) return false;
+      if (view === 'all' && task.done) return false;
+      if (view === 'done' && !task.done) return false;
+      if (category !== 'all' && task.category !== category) return false;
+      if (q && !(task.title + ' ' + task.note).toLocaleLowerCase('bg-BG').includes(q)) return false;
+      return true;
+    });
+    const prio = (task) => task.priority === 'high' ? 0 : 1;
+    result.sort((a, b) => {
+      if (view === 'done') return (b.completedAt || '').localeCompare(a.completedAt || '');
+      const dateDiff = (a.date || '9999').localeCompare(b.date || '9999');
+      return dateDiff || prio(a) - prio(b) || b.createdAt.localeCompare(a.createdAt);
+    });
+    return result;
+  }
+
+  function taskHtml(task) {
+    const today = localDate();
+    const late = !task.done && task.date && task.date < today;
+    const dateClass = late ? ' overdue' : '';
+    const dateText = late ? `Просрочено · ${prettyDate(task.date)}` : prettyDate(task.date);
+    return `<article class="task-card${task.done ? ' completed' : ''}">
+      <button type="button" class="task-check" data-action="toggle" data-id="${escapeHtml(task.id)}" aria-label="${task.done ? 'Върни като неизпълнена' : 'Маркирай като изпълнена'}: ${escapeHtml(task.title)}">${icon('check')}</button>
+      <button type="button" class="task-main" data-action="edit" data-id="${escapeHtml(task.id)}" aria-label="Редактирай: ${escapeHtml(task.title)}">
+        <span class="task-title">${escapeHtml(task.title)}</span>
+        ${task.note ? `<span class="task-note">${escapeHtml(task.note)}</span>` : ''}
+        <span class="task-meta">
+          <span class="pill ${task.category}">${escapeHtml(CATEGORIES[task.category])}</span>
+          <span class="pill${dateClass}">${icon('calendar')}${escapeHtml(dateText)}</span>
+          ${task.priority === 'high' ? '<span class="pill important">★ Важна</span>' : ''}
+        </span>
+      </button>
+      <button type="button" class="task-remove" data-action="delete" data-id="${escapeHtml(task.id)}" aria-label="Изтрий: ${escapeHtml(task.title)}" title="Изтрий">${icon('trash')}</button>
+    </article>`;
+  }
+  function renderList() {
+    el('sectionEyebrow').textContent = VIEWS[view][0];
+    el('listTitle').textContent = VIEWS[view][1];
+    document.querySelectorAll('[data-view]').forEach((button) => {
+      const active = button.dataset.view === view;
+      button.classList.toggle('active', active);
+      if (active) button.setAttribute('aria-current', 'page');
+      else button.removeAttribute('aria-current');
+    });
+
+    const visible = getVisibleTasks();
+    if (visible.length) {
+      el('taskList').innerHTML = visible.map(taskHtml).join('');
+      return;
+    }
+    const hasFilter = Boolean(el('searchInput').value.trim()) || el('categoryFilter').value !== 'all';
+    const messages = {
+      today: ['Спокойно начало!', 'Нямаш задачи за днес. Добави една малка стъпка.'],
+      upcoming: ['Нищо предстоящо', 'Тук ще виждаш задачите, планирани за следващите дни.'],
+      all: ['Започни с първата задача', 'Запиши какво трябва да направиш и MyDay ще го подреди.'],
+      done: ['Все още няма завършени задачи', 'Когато отметнеш задача, тя ще се появи тук.']
+    };
+    const [title, description] = hasFilter
+      ? ['Няма намерени задачи', 'Опитай друга дума или категория.']
+      : messages[view];
+    el('taskList').innerHTML = `<div class="empty-state">
+      <span class="empty-icon">${icon(view === 'done' ? 'check' : 'sparkle')}</span>
+      <h3>${title}</h3><p>${description}</p>
+      ${!hasFilter && view !== 'done' ? '<button type="button" id="emptyAdd">+ Добави задача</button>' : ''}
+    </div>`;
+  }
+  function render() {
+    renderHeader();
+    renderList();
+  }
+
+  function openEditor(task = null) {
+    editingId = task ? task.id : null;
+    el('taskForm').reset();
+    el('dialogTitle').textContent = task ? 'Редактирай задача' : 'Нова задача';
+    el('saveButton').textContent = task ? 'Запази промените' : 'Добави задачата';
+    el('taskTitle').value = task?.title || '';
+    el('taskNote').value = task?.note || '';
+    const nextDay = new Date();
+    if (view === 'upcoming') nextDay.setDate(nextDay.getDate() + 1);
+    el('taskDate').value = task ? task.date : localDate(nextDay);
+    el('taskCategory').value = task?.category || (el('categoryFilter').value !== 'all' ? el('categoryFilter').value : 'personal');
+    el('taskPriority').value = task?.priority || 'normal';
+    el('toolsMenu').open = false;
+    el('taskDialog').showModal();
+    requestAnimationFrame(() => el('taskTitle').focus());
+  }
+  function closeEditor() { el('taskDialog').close(); }
+  function handleSubmit(event) {
+    event.preventDefault();
+    const title = el('taskTitle').value.trim();
+    const date = el('taskDate').value;
+    if (!title) { el('taskTitle').focus(); return; }
+    if (!isValidDate(date)) { showToast('Провери датата.'); return; }
+    const common = {
+      title,
+      note: el('taskNote').value.trim(),
+      date,
+      category: el('taskCategory').value,
+      priority: el('taskPriority').value
+    };
+    let next;
+    if (editingId) {
+      if (!tasks.some((task) => task.id === editingId)) return;
+      next = tasks.map((task) => task.id === editingId ? { ...task, ...common } : task);
+    } else {
+      next = [{ id: makeId(), ...common, done: false, createdAt: new Date().toISOString(), completedAt: null }, ...tasks];
+    }
+    if (saveTasks(next)) {
+      closeEditor();
+      showToast(editingId ? 'Промените са запазени.' : 'Задачата е добавена.');
+      editingId = null;
+    }
+  }
+  function toggleTask(id) {
+    const existing = tasks.find((task) => task.id === id);
+    if (!existing) return;
+    const next = tasks.map((task) => task.id !== id ? task : {
+      ...task, done: !task.done, completedAt: task.done ? null : new Date().toISOString()
+    });
+    if (saveTasks(next)) showToast(existing.done ? 'Задачата е върната.' : 'Браво! Задачата е изпълнена.');
+  }
+  function deleteTask(id) {
+    const existing = tasks.find((task) => task.id === id);
+    if (!existing || !confirm(`Да изтрия ли задачата „${existing.title}“?`)) return;
+    if (saveTasks(tasks.filter((task) => task.id !== id))) showToast('Задачата е изтрита.');
+  }
+  function exportBackup() {
+    const backup = { app: 'MyDay', version: 1, exportedAt: new Date().toISOString(), tasks };
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `myday-backup-${localDate()}.json`;
+    document.body.append(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    el('toolsMenu').open = false;
+    showToast('Backup файлът е подготвен за сваляне.');
+  }
+  async function importBackup(file) {
+    if (!file) return;
+    try {
+      if (file.size > 3 * 1024 * 1024) throw new Error('Файлът е твърде голям (макс. 3 MB).');
+      const backup = JSON.parse(await file.text());
+      if (backup.app !== 'MyDay' || backup.version !== 1 || !Array.isArray(backup.tasks) || backup.tasks.length > 5000) {
+        throw new Error('Това не е съвместим MyDay backup файл.');
+      }
+      const imported = backup.tasks.map(normalizeTask);
+      if (imported.some((task) => !task)) throw new Error('Някои задачи във файла са невалидни.');
+      const known = new Set(tasks.map((task) => task.id));
+      const fresh = [];
+      for (const task of imported) {
+        if (!known.has(task.id)) { fresh.push(task); known.add(task.id); }
+      }
+      if (!fresh.length) { showToast('Няма нови задачи за добавяне.'); return; }
+      if (!confirm(`Намерени са ${fresh.length} нови задачи. Да ги добавя ли към сегашните? Нищо няма да бъде изтрито.`)) return;
+      if (saveTasks([...fresh, ...tasks])) showToast(`Добавени са ${fresh.length} задачи.`);
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Грешка при зареждане на файла.');
+    } finally {
+      el('importFile').value = '';
+      el('toolsMenu').open = false;
+    }
+  }
+
+  function applyTheme(theme) {
+    document.documentElement.dataset.theme = theme;
+    el('themeButton').innerHTML = icon(theme === 'dark' ? 'sun' : 'moon');
+    document.querySelector('meta[name="theme-color"]').content = theme === 'dark' ? '#101725' : '#f6f8fc';
+    try { localStorage.setItem(THEME_KEY, theme); } catch { /* Browser storage blocked */ }
+  }
+  function init() {
+    let theme = 'light';
+    try { theme = localStorage.getItem(THEME_KEY) || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'); }
+    catch { /* use light theme */ }
+    applyTheme(theme === 'dark' ? 'dark' : 'light');
+
+    el('themeButton').addEventListener('click', () => applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'));
+    document.querySelectorAll('[data-view]').forEach((button) => button.addEventListener('click', () => { view = button.dataset.view; render(); }));
+    el('searchInput').addEventListener('input', renderList);
+    el('categoryFilter').addEventListener('change', renderList);
+    for (const id of ['addButton', 'mobileAdd']) el(id).addEventListener('click', () => openEditor());
+    el('taskList').addEventListener('click', (event) => {
+      const button = event.target.closest('button[data-action]');
+      if (button) {
+        const task = tasks.find((item) => item.id === button.dataset.id);
+        if (!task) return;
+        if (button.dataset.action === 'toggle') toggleTask(task.id);
+        if (button.dataset.action === 'delete') deleteTask(task.id);
+        if (button.dataset.action === 'edit') openEditor(task);
+      } else if (event.target.closest('#emptyAdd')) openEditor();
+    });
+    el('taskForm').addEventListener('submit', handleSubmit);
+    el('closeDialog').addEventListener('click', closeEditor);
+    el('cancelDialog').addEventListener('click', closeEditor);
+    el('clearDate').addEventListener('click', () => { el('taskDate').value = ''; });
+    el('taskDialog').addEventListener('click', (event) => { if (event.target === el('taskDialog')) closeEditor(); });
+    el('exportButton').addEventListener('click', exportBackup);
+    el('importButton').addEventListener('click', () => el('importFile').click());
+    el('importFile').addEventListener('change', (event) => importBackup(event.target.files?.[0]));
+    document.addEventListener('click', (event) => { if (!el('toolsMenu').contains(event.target)) el('toolsMenu').open = false; });
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) render(); });
+    render();
+    if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+      window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
+    }
+  }
+  init();
+})();

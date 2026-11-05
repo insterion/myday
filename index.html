@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="bg">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f6f8fc">
+  <meta name="description" content="MyDay — лек личен органайзер за ежедневни задачи.">
+  <meta name="color-scheme" content="light dark">
+  <link rel="manifest" href="./manifest.json">
+  <link rel="icon" type="image/png" href="./icon-192.png">
+  <link rel="apple-touch-icon" href="./icon-192.png">
+  <link rel="stylesheet" href="./styles.css">
+  <title>MyDay · Моят ден</title>
+  <script defer src="./app.js"></script>
+</head>
+<body>
+  <svg class="svg-sprite" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4.5 4.5L19 7"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20.8 15.5A9 9 0 0 1 8.5 3.2 9 9 0 1 0 20.8 15.5Z"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.5"/><path d="m16 16 5 5"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3m-9 0 1 13h10l1-13M10 11v5m4-5v5"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+    <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4m10-4v4M3 10h18"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4"/></symbol>
+    <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 17V5m-5 5 5-5 5 5M4 17v4h16v-4"/></symbol>
+    <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="M5 5 19 19M19 5 5 19"/></symbol>
+    <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="m12 2 2.1 7.9L22 12l-7.9 2.1L12 22l-2.1-7.9L2 12l7.9-2.1L12 2Z"/></symbol>
+  </svg>
+
+  <div class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="./" aria-label="MyDay — начало">
+        <span class="brand-mark"><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg></span>
+        <span>myday<span class="brand-dot">.</span></span>
+        <span class="version">0.1</span>
+      </a>
+      <div class="top-actions">
+        <button class="icon-button" id="themeButton" type="button" aria-label="Смени темата" title="Светла / тъмна тема">
+          <svg class="icon" aria-hidden="true"><use href="#i-moon"/></svg>
+        </button>
+        <details class="tools-menu" id="toolsMenu">
+          <summary class="icon-button" aria-label="Резервно копие и настройки" title="Резервно копие">
+            <svg class="icon" aria-hidden="true"><use href="#i-more"/></svg>
+          </summary>
+          <div class="menu-panel">
+            <div class="menu-heading">Моите данни</div>
+            <button id="exportButton" type="button"><svg class="icon"><use href="#i-download"/></svg> Запази backup</button>
+            <button id="importButton" type="button"><svg class="icon"><use href="#i-upload"/></svg> Зареди backup</button>
+            <p>Задачите се пазят само в този браузър. Прави резервни копия редовно.</p>
+          </div>
+        </details>
+        <input id="importFile" type="file" accept=".json,application/json" hidden>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero" aria-labelledby="greeting">
+        <div class="hero-copy">
+          <p class="eyebrow" id="dateLabel"></p>
+          <h1 id="greeting">Моят ден<span class="hero-accent">.</span></h1>
+          <p class="subtitle">Малките задачи правят деня по-лек.</p>
+        </div>
+        <div class="progress-card" aria-live="polite">
+          <span class="progress-label">Напредък днес</span>
+          <div class="progress-row"><strong id="progressCount">0 / 0</strong><span id="progressPercent">0%</span></div>
+          <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+        </div>
+      </section>
+
+      <nav class="views" aria-label="Преглед на задачите">
+        <button class="view active" type="button" data-view="today" aria-current="page">Днес <span id="countToday">0</span></button>
+        <button class="view" type="button" data-view="upcoming">Предстоящи <span id="countUpcoming">0</span></button>
+        <button class="view" type="button" data-view="all">Всички <span id="countAll">0</span></button>
+        <button class="view" type="button" data-view="done">Готови <span id="countDone">0</span></button>
+      </nav>
+
+      <section class="tasks-section" aria-labelledby="listTitle">
+        <div class="section-heading">
+          <div><p class="eyebrow muted" id="sectionEyebrow">Твоят фокус</p><h2 id="listTitle">Задачи за днес</h2></div>
+          <button class="add-button" id="addButton" type="button"><svg class="icon"><use href="#i-plus"/></svg> Нова задача</button>
+        </div>
+        <div class="filters">
+          <label class="search-field">
+            <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
+            <input id="searchInput" type="search" placeholder="Търси задача..." autocomplete="off" aria-label="Търси задачи">
+          </label>
+          <label class="category-filter"><span class="visually-hidden">Филтър по категория</span>
+            <select id="categoryFilter">
+              <option value="all">Всички категории</option>
+              <option value="work">Работа</option>
+              <option value="personal">Лични</option>
+              <option value="shopping">Пазаруване</option>
+              <option value="other">Други</option>
+            </select>
+          </label>
+        </div>
+        <div id="taskList" class="task-list" aria-live="polite"></div>
+      </section>
+    </main>
+
+    <footer>MyDay 0.1 <span aria-hidden="true">·</span> Просто, лично и безплатно <span aria-hidden="true">·</span> Данните са на твоето устройство</footer>
+  </div>
+
+  <button id="mobileAdd" class="mobile-add" type="button" aria-label="Добави нова задача"><svg class="icon"><use href="#i-plus"/></svg></button>
+
+  <dialog id="taskDialog" class="task-dialog" aria-labelledby="dialogTitle">
+    <form id="taskForm">
+      <div class="dialog-header">
+        <div><p class="eyebrow muted">MYDAY</p><h2 id="dialogTitle">Нова задача</h2></div>
+        <button class="icon-button" id="closeDialog" type="button" aria-label="Затвори"><svg class="icon"><use href="#i-close"/></svg></button>
+      </div>
+      <div class="dialog-body">
+        <label class="field-label" for="taskTitle">Какво трябва да направиш? <span aria-hidden="true">*</span></label>
+        <input class="text-input" id="taskTitle" name="title" type="text" maxlength="160" placeholder="Например: Поръчай кафе" autocomplete="off" required>
+
+        <label class="field-label" for="taskNote">Бележка <span class="optional">(по желание)</span></label>
+        <textarea class="text-input" id="taskNote" name="note" rows="3" maxlength="1500" placeholder="Нещо важно за задачата..."></textarea>
+
+        <div class="field-grid">
+          <div>
+            <label class="field-label" for="taskDate">Дата</label>
+            <input class="text-input" id="taskDate" name="date" type="date">
+            <button class="clear-date" id="clearDate" type="button">Без дата</button>
+          </div>
+          <div>
+            <label class="field-label" for="taskCategory">Категория</label>
+            <select class="text-input" id="taskCategory" name="category">
+              <option value="personal">Лични</option>
+              <option value="work">Работа</option>
+              <option value="shopping">Пазаруване</option>
+              <option value="other">Други</option>
+            </select>
+          </div>
+        </div>
+        <label class="field-label" for="taskPriority">Важност</label>
+        <select class="text-input" id="taskPriority" name="priority">
+          <option value="normal">Обикновена</option>
+          <option value="high">Важна</option>
+        </select>
+      </div>
+      <div class="dialog-footer">
+        <button class="secondary-button" id="cancelDialog" type="button">Отказ</button>
+        <button class="save-button" id="saveButton" type="submit">Запази задачата</button>
+      </div>
+    </form>
+  </dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
