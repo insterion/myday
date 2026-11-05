@@ -11,13 +11,17 @@
     today: ['Твоят фокус', 'Задачи за днес'],
     upcoming: ['Планирай спокойно', 'Предстоящи задачи'],
     all: ['Всичко на едно място', 'Всички активни задачи'],
-    done: ['Малките победи', 'Изпълнени задачи']
+    done: ['Малките победи', 'Изпълнени задачи'],
+    calendar: ['Избран ден', 'Задачи за деня']
   };
   const el = (id) => document.getElementById(id);
   const icon = (name) => `<svg class="icon" aria-hidden="true"><use href="#i-${name}"></use></svg>`;
   let tasks = readTasks();
   let view = 'today';
   let editingId = null;
+  let movingId = null;
+  let selectedDate = localDate();
+  let monthCursor = selectedDate.slice(0, 7);
   let toastTimer = null;
 
   function localDate(date = new Date()) {
@@ -146,6 +150,55 @@
     toastTimer = setTimeout(() => el('toast').classList.remove('show'), 3100);
   }
 
+  function renderCalendar() {
+    const open = view === 'calendar';
+    document.body.classList.toggle('calendar-open', open);
+    el('calendarPanel').hidden = !open;
+    el('calendarToggle').classList.toggle('active', open);
+    el('calendarToggle').setAttribute('aria-pressed', String(open));
+    el('calendarToggle').setAttribute('aria-expanded', String(open));
+    if (!open) return;
+    const [year, month] = monthCursor.split('-').map(Number);
+    el('calendarMonth').textContent = new Intl.DateTimeFormat('bg-BG', {
+      month: 'long', year: 'numeric'
+    }).format(new Date(year, month - 1, 1, 12));
+    const start = (new Date(year, month - 1, 1, 12).getDay() + 6) % 7;
+    const length = new Date(year, month, 0, 12).getDate();
+    const cells = Math.ceil((start + length) / 7) * 7;
+    const planned = new Set(tasks.filter((task) => !task.done && task.date).map((task) => task.date));
+    const today = localDate();
+    const formatter = new Intl.DateTimeFormat('bg-BG', {
+      day: 'numeric', month: 'long', year: 'numeric'
+    });
+    const html = [];
+    for (let index = 0; index < cells; index++) {
+      const day = index - start + 1;
+      if (day < 1 || day > length) {
+        html.push('<span class="calendar-placeholder" aria-hidden="true"></span>');
+        continue;
+      }
+      const date = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      const isSelected = date === selectedDate;
+      const isToday = date === today;
+      const hasTasks = planned.has(date);
+      const human = formatter.format(new Date(year, month - 1, day, 12));
+      html.push(`<button type="button" class="calendar-day${isSelected ? ' selected' : ''}${isToday ? ' today' : ''}${hasTasks ? ' has-tasks' : ''}" data-calendar-date="${date}" aria-pressed="${isSelected}" aria-label="${human}${hasTasks ? ', има задачи' : ''}${isToday ? ', днес' : ''}"><span>${day}</span>${hasTasks ? '<i aria-hidden="true"></i>' : ''}</button>`);
+    }
+    el('calendarGrid').innerHTML = html.join('');
+  }
+  function shiftCalendarMonth(delta) {
+    const [year, month] = monthCursor.split('-').map(Number);
+    const next = new Date(year, month - 1 + delta, 1, 12);
+    monthCursor = localDate(next).slice(0, 7);
+    renderCalendar();
+  }
+  function selectCalendarDate(date) {
+    if (!isValidDate(date) || !date) return;
+    selectedDate = date;
+    monthCursor = date.slice(0, 7);
+    view = 'calendar';
+    render();
+  }
   function renderHeader() {
     const today = localDate();
     const active = tasks.filter((task) => !task.done);
@@ -178,6 +231,7 @@
       if (view === 'upcoming' && (task.done || !task.date || task.date <= today)) return false;
       if (view === 'all' && task.done) return false;
       if (view === 'done' && !task.done) return false;
+      if (view === 'calendar' && (task.done || task.date !== selectedDate)) return false;
       if (category !== 'all' && task.category !== category) return false;
       if (q && !(task.title + ' ' + task.note).toLocaleLowerCase('bg-BG').includes(q)) return false;
       return true;
@@ -208,12 +262,15 @@
           ${task.priority === 'high' ? '<span class="pill important">★ Важна</span>' : ''}
         </span>
       </button>
+      ${!task.done ? `<button type="button" class="task-move" data-action="move" data-id="${escapeHtml(task.id)}" aria-label="Премести за друга дата: ${escapeHtml(task.title)}" title="Промени датата">${icon('calendar')}</button>` : ''}
       <button type="button" class="task-remove" data-action="delete" data-id="${escapeHtml(task.id)}" aria-label="Изтрий: ${escapeHtml(task.title)}" title="Изтрий">${icon('trash')}</button>
     </article>`;
   }
   function renderList() {
     el('sectionEyebrow').textContent = VIEWS[view][0];
-    el('listTitle').textContent = VIEWS[view][1];
+    el('listTitle').textContent = view === 'calendar'
+      ? `Задачи за ${new Intl.DateTimeFormat('bg-BG', { day: 'numeric', month: 'long' }).format(new Date(`${selectedDate}T12:00:00`))}`
+      : VIEWS[view][1];
     document.querySelectorAll('[data-view]').forEach((button) => {
       const active = button.dataset.view === view;
       button.classList.toggle('active', active);
@@ -231,7 +288,8 @@
       today: ['Спокойно начало!', 'Нямаш задачи за днес. Добави една малка стъпка.'],
       upcoming: ['Нищо предстоящо', 'Тук ще виждаш задачите, планирани за следващите дни.'],
       all: ['Започни с първата задача', 'Запиши какво трябва да направиш и MyDay ще го подреди.'],
-      done: ['Все още няма завършени задачи', 'Когато отметнеш задача, тя ще се появи тук.']
+      done: ['Все още няма завършени задачи', 'Когато отметнеш задача, тя ще се появи тук.'],
+      calendar: ['Няма задачи за тази дата', 'Избери друг ден или добави нова задача.']
     };
     const [title, description] = hasFilter
       ? ['Няма намерени задачи', 'Опитай друга дума или категория.']
@@ -244,6 +302,7 @@
   }
   function render() {
     renderHeader();
+    renderCalendar();
     renderList();
   }
 
@@ -256,7 +315,7 @@
     el('taskNote').value = task?.note || '';
     const nextDay = new Date();
     if (view === 'upcoming') nextDay.setDate(nextDay.getDate() + 1);
-    el('taskDate').value = task ? task.date : localDate(nextDay);
+    el('taskDate').value = task ? task.date : (view === 'calendar' ? selectedDate : localDate(nextDay));
     el('taskCategory').value = task?.category || (el('categoryFilter').value !== 'all' ? el('categoryFilter').value : 'personal');
     el('taskPriority').value = task?.priority || 'normal';
     el('taskRepeat').value = task?.repeat || 'none';
@@ -336,13 +395,38 @@
     });
     if (saveTasks(next)) showToast(existing.done ? 'Задачата е върната.' : 'Браво! Задачата е изпълнена.');
   }
+  function openMove(task) {
+    if (task.done) return;
+    movingId = task.id;
+    el('moveTaskName').textContent = task.title;
+    el('moveDate').value = task.date || localDate();
+    el('moveDialog').showModal();
+  }
+  function closeMove() {
+    el('moveDialog').close();
+    movingId = null;
+  }
+  function handleMove(event) {
+    event.preventDefault();
+    const task = tasks.find((item) => item.id === movingId);
+    const date = el('moveDate').value;
+    if (!task || task.done || !date || !isValidDate(date)) { showToast('Избери валидна дата.'); return; }
+    if (task.date === date) { closeMove(); return; }
+    const next = tasks.map((item) => item.id === movingId
+      ? { ...item, date, repeatDay: item.repeat === 'monthly' ? dayOfMonth(date) : null, autoGenerated: false }
+      : item);
+    if (saveTasks(next)) {
+      closeMove();
+      showToast(`Задачата е преместена за ${prettyDate(date)}.`);
+    }
+  }
   function deleteTask(id) {
     const existing = tasks.find((task) => task.id === id);
     if (!existing || !confirm(`Да изтрия ли задачата „${existing.title}“?`)) return;
     if (saveTasks(tasks.filter((task) => task.id !== id))) showToast('Задачата е изтрита.');
   }
   function exportBackup() {
-    const backup = { app: 'MyDay', version: 2, exportedAt: new Date().toISOString(), tasks };
+    const backup = { app: 'MyDay', version: 3, exportedAt: new Date().toISOString(), tasks };
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -360,7 +444,7 @@
     try {
       if (file.size > 3 * 1024 * 1024) throw new Error('Файлът е твърде голям (макс. 3 MB).');
       const backup = JSON.parse(await file.text());
-      if (backup.app !== 'MyDay' || ![1, 2].includes(backup.version) || !Array.isArray(backup.tasks) || backup.tasks.length > 5000) {
+      if (backup.app !== 'MyDay' || ![1, 2, 3].includes(backup.version) || !Array.isArray(backup.tasks) || backup.tasks.length > 5000) {
         throw new Error('Това не е съвместим MyDay backup файл.');
       }
       const imported = backup.tasks.map(normalizeTask);
@@ -395,6 +479,19 @@
 
     el('themeButton').addEventListener('click', () => applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'));
     document.querySelectorAll('[data-view]').forEach((button) => button.addEventListener('click', () => { view = button.dataset.view; render(); }));
+    el('calendarToggle').addEventListener('click', () => {
+      if (view === 'calendar') view = 'today';
+      else { selectedDate = localDate(); monthCursor = selectedDate.slice(0, 7); view = 'calendar'; }
+      render();
+    });
+    el('prevMonth').addEventListener('click', () => shiftCalendarMonth(-1));
+    el('nextMonth').addEventListener('click', () => shiftCalendarMonth(1));
+    el('calendarToday').addEventListener('click', () => selectCalendarDate(localDate()));
+    el('calendarAdd').addEventListener('click', () => openEditor());
+    el('calendarGrid').addEventListener('click', (event) => {
+      const button = event.target.closest('button[data-calendar-date]');
+      if (button) selectCalendarDate(button.dataset.calendarDate);
+    });
     el('searchInput').addEventListener('input', renderList);
     el('categoryFilter').addEventListener('change', renderList);
     for (const id of ['addButton', 'mobileAdd']) el(id).addEventListener('click', () => openEditor());
@@ -406,9 +503,20 @@
         if (button.dataset.action === 'toggle') toggleTask(task.id);
         if (button.dataset.action === 'delete') deleteTask(task.id);
         if (button.dataset.action === 'edit') openEditor(task);
+        if (button.dataset.action === 'move') openMove(task);
       } else if (event.target.closest('#emptyAdd')) openEditor();
     });
     el('taskForm').addEventListener('submit', handleSubmit);
+    el('moveForm').addEventListener('submit', handleMove);
+    el('closeMove').addEventListener('click', closeMove);
+    el('cancelMove').addEventListener('click', closeMove);
+    el('moveDialog').addEventListener('click', (event) => { if (event.target === el('moveDialog')) closeMove(); });
+    el('moveDialog').addEventListener('close', () => { movingId = null; });
+    document.querySelectorAll('[data-move-offset]').forEach((button) => button.addEventListener('click', () => {
+      const date = new Date();
+      date.setDate(date.getDate() + Number(button.dataset.moveOffset));
+      el('moveDate').value = localDate(date);
+    }));
     el('closeDialog').addEventListener('click', closeEditor);
     el('cancelDialog').addEventListener('click', closeEditor);
     el('clearDate').addEventListener('click', () => { el('taskDate').value = ''; });

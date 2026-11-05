@@ -9,9 +9,9 @@
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" type="image/png" href="./icon-192.png">
   <link rel="apple-touch-icon" href="./icon-192.png">
-  <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./styles.css?v=0.3">
   <title>MyDay · Моят ден</title>
-  <script defer src="./app.js"></script>
+  <script defer src="./app.js?v=0.3"></script>
 </head>
 <body>
   <svg class="svg-sprite" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
@@ -27,6 +27,8 @@
     <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 17V5m-5 5 5-5 5 5M4 17v4h16v-4"/></symbol>
     <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
     <symbol id="i-close" viewBox="0 0 24 24"><path d="M5 5 19 19M19 5 5 19"/></symbol>
+    <symbol id="i-arrow-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+    <symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
     <symbol id="i-repeat" viewBox="0 0 24 24"><path d="M4 7h13a4 4 0 0 1 4 4v2M17 3l4 4-4 4M20 17H7a4 4 0 0 1-4-4v-2M7 21l-4-4 4-4"/></symbol>
     <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="m12 2 2.1 7.9L22 12l-7.9 2.1L12 22l-2.1-7.9L2 12l7.9-2.1L12 2Z"/></symbol>
   </svg>
@@ -36,7 +38,7 @@
       <a class="brand" href="./" aria-label="MyDay — начало">
         <span class="brand-mark"><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg></span>
         <span>myday<span class="brand-dot">.</span></span>
-        <span class="version">0.2</span>
+        <span class="version">0.3</span>
       </a>
       <div class="top-actions">
         <button class="icon-button" id="themeButton" type="button" aria-label="Смени темата" title="Светла / тъмна тема">
@@ -81,8 +83,23 @@
       <section class="tasks-section" aria-labelledby="listTitle">
         <div class="section-heading">
           <div><p class="eyebrow muted" id="sectionEyebrow">Твоят фокус</p><h2 id="listTitle">Задачи за днес</h2></div>
-          <button class="add-button" id="addButton" type="button"><svg class="icon"><use href="#i-plus"/></svg> Нова задача</button>
+          <div class="section-actions">
+            <button class="calendar-toggle" id="calendarToggle" type="button" aria-pressed="false" aria-expanded="false" aria-controls="calendarPanel"><svg class="icon" aria-hidden="true"><use href="#i-calendar"/></svg> Календар</button>
+            <button class="add-button" id="addButton" type="button"><svg class="icon"><use href="#i-plus"/></svg> Нова задача</button>
+          </div>
         </div>
+        <section class="calendar-panel" id="calendarPanel" aria-label="Календар" hidden>
+          <div class="calendar-toolbar">
+            <button class="calendar-arrow" id="prevMonth" type="button" aria-label="Предишен месец"><svg class="icon" aria-hidden="true"><use href="#i-arrow-left"/></svg></button>
+            <strong id="calendarMonth">Месец</strong>
+            <button class="calendar-arrow" id="nextMonth" type="button" aria-label="Следващ месец"><svg class="icon" aria-hidden="true"><use href="#i-arrow-right"/></svg></button>
+            <button class="calendar-today" id="calendarToday" type="button">Днес</button>
+            <button class="calendar-arrow calendar-add" id="calendarAdd" type="button" aria-label="Нова задача за избрания ден" title="Нова задача за деня"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg></button>
+          </div>
+          <div class="calendar-weekdays" aria-hidden="true"><span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span>Сб</span><span>Нд</span></div>
+          <div class="calendar-grid" id="calendarGrid" role="group" aria-label="Избери ден"></div>
+          <p class="calendar-hint">Точката показва ден с планирани, неизпълнени задачи. Докосни дата, за да ги видиш.</p>
+        </section>
         <div class="filters">
           <label class="search-field">
             <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
@@ -102,7 +119,7 @@
       </section>
     </main>
 
-    <footer>MyDay 0.2 <span aria-hidden="true">·</span> Просто, лично и безплатно <span aria-hidden="true">·</span> Данните са на твоето устройство</footer>
+    <footer>MyDay 0.3 <span aria-hidden="true">·</span> Просто, лично и безплатно <span aria-hidden="true">·</span> Данните са на твоето устройство</footer>
   </div>
 
   <button id="mobileAdd" class="mobile-add" type="button" aria-label="Добави нова задача"><svg class="icon"><use href="#i-plus"/></svg></button>
@@ -159,6 +176,29 @@
       <div class="dialog-footer">
         <button class="secondary-button" id="cancelDialog" type="button">Отказ</button>
         <button class="save-button" id="saveButton" type="submit">Запази задачата</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="moveDialog" class="task-dialog move-dialog" aria-labelledby="moveTitle">
+    <form id="moveForm">
+      <div class="dialog-header">
+        <div><p class="eyebrow muted">БЪРЗА ПРОМЯНА</p><h2 id="moveTitle">Премести задача</h2></div>
+        <button class="icon-button" id="closeMove" type="button" aria-label="Затвори"><svg class="icon"><use href="#i-close"/></svg></button>
+      </div>
+      <div class="dialog-body">
+        <p id="moveTaskName" class="move-task-name"></p>
+        <label class="field-label" for="moveDate">Избери нова дата</label>
+        <input class="text-input" id="moveDate" type="date" required>
+        <div class="move-shortcuts" aria-label="Бърз избор на дата">
+          <button type="button" data-move-offset="0">Днес</button>
+          <button type="button" data-move-offset="1">Утре</button>
+          <button type="button" data-move-offset="7">След 7 дни</button>
+        </div>
+        <p class="repeat-help">Ако задачата се повтаря всеки месец, новата дата ще стане основа за следващите повторения.</p>
+      </div>
+      <div class="dialog-footer">
+        <button class="secondary-button" id="cancelMove" type="button">Отказ</button>
+        <button class="save-button" type="submit">Запази датата</button>
       </div>
     </form>
   </dialog>
