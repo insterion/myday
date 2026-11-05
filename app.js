@@ -23,6 +23,8 @@
   let selectedDate = localDate();
   let monthCursor = selectedDate.slice(0, 7);
   let toastTimer = null;
+  const expandedSubtasks = new Set();
+  const MAX_SUBTASKS = 30;
 
   function localDate(date = new Date()) {
     const y = date.getFullYear();
@@ -74,6 +76,21 @@
     }
     return '';
   }
+  function normalizeSubtasks(value) {
+    if (!Array.isArray(value)) return [];
+    const seen = new Set();
+    const normalized = [];
+    for (const item of value.slice(0, MAX_SUBTASKS)) {
+      if (!item || typeof item !== 'object' || Array.isArray(item)) continue;
+      const text = safeString(item.text, 100).trim();
+      if (!text) continue;
+      let id = safeString(item.id, 100) || makeId();
+      if (seen.has(id)) id = makeId();
+      seen.add(id);
+      normalized.push({ id, text, done: item.done === true });
+    }
+    return normalized;
+  }
   function normalizeTask(raw) {
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
     const title = safeString(raw.title, 160).trim();
@@ -87,6 +104,7 @@
       id: safeString(raw.id, 100) || makeId(),
       title,
       note: safeString(raw.note, 1500),
+      subtasks: normalizeSubtasks(raw.subtasks),
       date,
       category: Object.hasOwn(CATEGORIES, raw.category) ? raw.category : 'other',
       priority: raw.priority === 'high' ? 'high' : 'normal',
@@ -233,7 +251,7 @@
       if (view === 'done' && !task.done) return false;
       if (view === 'calendar' && (task.done || task.date !== selectedDate)) return false;
       if (category !== 'all' && task.category !== category) return false;
-      if (q && !(task.title + ' ' + task.note).toLocaleLowerCase('bg-BG').includes(q)) return false;
+      if (q && !(task.title + ' ' + task.note + ' ' + task.subtasks.map((part) => part.text).join(' ')).toLocaleLowerCase('bg-BG').includes(q)) return false;
       return true;
     });
     const prio = (task) => task.priority === 'high' ? 0 : 1;
@@ -250,18 +268,30 @@
     const late = !task.done && task.date && task.date < today;
     const dateClass = late ? ' overdue' : '';
     const dateText = late ? `Просрочено · ${prettyDate(task.date)}` : prettyDate(task.date);
+    const total = task.subtasks.length;
+    const checked = task.subtasks.filter((part) => part.done).length;
+    const expanded = expandedSubtasks.has(task.id);
+    const checklist = total ? `<div class="subtask-panel">
+      <button type="button" class="subtask-toggle" data-action="expand" data-id="${escapeHtml(task.id)}" aria-expanded="${expanded}" aria-label="${expanded ? 'Скрий' : 'Покажи'} подзадачите: ${escapeHtml(task.title)}">
+        <span class="subtask-counter">${icon('check')} ${checked} / ${total} подзадачи</span><span class="subtask-toggle-label">${expanded ? 'Скрий' : 'Покажи списъка'}</span>
+      </button>
+      ${expanded ? `<div class="subtask-checklist">${task.subtasks.map((part) => `<button type="button" class="subtask-item${part.done ? ' checked' : ''}" data-action="subtask" data-id="${escapeHtml(task.id)}" data-sub-id="${escapeHtml(part.id)}" ${task.done ? 'disabled' : ''} aria-pressed="${part.done}" aria-label="${part.done ? 'Премахни отметката от' : 'Отметни'}: ${escapeHtml(part.text)}"><span class="subtask-box">${icon('check')}</span><span class="subtask-item-text">${escapeHtml(part.text)}</span></button>`).join('')}</div>` : ''}
+      </div>` : '';
     return `<article class="task-card${task.done ? ' completed' : ''}">
       <button type="button" class="task-check" data-action="toggle" data-id="${escapeHtml(task.id)}" aria-label="${task.done ? 'Върни като неизпълнена' : 'Маркирай като изпълнена'}: ${escapeHtml(task.title)}">${icon('check')}</button>
-      <button type="button" class="task-main" data-action="edit" data-id="${escapeHtml(task.id)}" aria-label="Редактирай: ${escapeHtml(task.title)}">
-        <span class="task-title">${escapeHtml(task.title)}</span>
-        ${task.note ? `<span class="task-note">${escapeHtml(task.note)}</span>` : ''}
-        <span class="task-meta">
-          <span class="pill ${task.category}">${escapeHtml(CATEGORIES[task.category])}</span>
-          <span class="pill${dateClass}">${icon('calendar')}${escapeHtml(dateText)}</span>
-          ${task.repeat !== 'none' ? `<span class="pill repeating">${icon('repeat')}${escapeHtml(REPEATS[task.repeat])}</span>` : ''}
-          ${task.priority === 'high' ? '<span class="pill important">★ Важна</span>' : ''}
-        </span>
-      </button>
+      <div class="task-content">
+        <button type="button" class="task-main" data-action="edit" data-id="${escapeHtml(task.id)}" aria-label="Редактирай: ${escapeHtml(task.title)}">
+          <span class="task-title">${escapeHtml(task.title)}</span>
+          ${task.note ? `<span class="task-note">${escapeHtml(task.note)}</span>` : ''}
+          <span class="task-meta">
+            <span class="pill ${task.category}">${escapeHtml(CATEGORIES[task.category])}</span>
+            <span class="pill${dateClass}">${icon('calendar')}${escapeHtml(dateText)}</span>
+            ${task.repeat !== 'none' ? `<span class="pill repeating">${icon('repeat')}${escapeHtml(REPEATS[task.repeat])}</span>` : ''}
+            ${task.priority === 'high' ? '<span class="pill important">★ Важна</span>' : ''}
+          </span>
+        </button>
+        ${checklist}
+      </div>
       ${!task.done ? `<button type="button" class="task-move" data-action="move" data-id="${escapeHtml(task.id)}" aria-label="Премести за друга дата: ${escapeHtml(task.title)}" title="Промени датата">${icon('calendar')}</button>` : ''}
       <button type="button" class="task-remove" data-action="delete" data-id="${escapeHtml(task.id)}" aria-label="Изтрий: ${escapeHtml(task.title)}" title="Изтрий">${icon('trash')}</button>
     </article>`;
@@ -306,6 +336,47 @@
     renderList();
   }
 
+  function renderSubtaskEditor(items) {
+    el('subtaskEditorList').innerHTML = items.map((part) => `<div class="subtask-editor-row" data-sub-id="${escapeHtml(part.id)}">
+      <input type="checkbox" class="subtask-editor-check" ${part.done ? 'checked' : ''} aria-label="Изпълнена подзадача: ${escapeHtml(part.text)}">
+      <input type="text" class="text-input subtask-editor-text" value="${escapeHtml(part.text)}" maxlength="100" aria-label="Текст на подзадача">
+      <button class="subtask-editor-remove" type="button" data-remove-subtask aria-label="Премахни подзадача: ${escapeHtml(part.text)}" title="Премахни">${icon('trash')}</button>
+    </div>`).join('');
+  }
+  function addSubtaskFromField() {
+    const value = el('newSubtask').value.trim();
+    if (!value) { el('newSubtask').focus(); return false; }
+    const rows = el('subtaskEditorList').querySelectorAll('.subtask-editor-row');
+    if (rows.length >= MAX_SUBTASKS) { showToast('Можеш да добавиш до 30 подзадачи.'); return false; }
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = `<div class="subtask-editor-row" data-sub-id="${escapeHtml(makeId())}">
+      <input type="checkbox" class="subtask-editor-check" aria-label="Изпълнена подзадача: ${escapeHtml(value)}">
+      <input type="text" class="text-input subtask-editor-text" value="${escapeHtml(value)}" maxlength="100" aria-label="Текст на подзадача">
+      <button class="subtask-editor-remove" type="button" data-remove-subtask aria-label="Премахни подзадача: ${escapeHtml(value)}" title="Премахни">${icon('trash')}</button>
+    </div>`;
+    el('subtaskEditorList').append(wrapper.firstElementChild);
+    el('newSubtask').value = '';
+    el('newSubtask').focus();
+    return true;
+  }
+  function getEditedSubtasks() {
+    return Array.from(el('subtaskEditorList').querySelectorAll('.subtask-editor-row'))
+      .map((row) => ({
+        id: row.dataset.subId || makeId(),
+        text: row.querySelector('.subtask-editor-text').value.trim().slice(0, 100),
+        done: row.querySelector('.subtask-editor-check').checked
+      })).filter((part) => part.text);
+  }
+  function toggleSubtask(taskId, subId) {
+    const existing = tasks.find((task) => task.id === taskId);
+    if (!existing || existing.done || !existing.subtasks.some((part) => part.id === subId)) return;
+    const next = tasks.map((task) => task.id !== taskId ? task : {
+      ...task, autoGenerated: false,
+      subtasks: task.subtasks.map((part) => part.id === subId ? { ...part, done: !part.done } : part)
+    });
+    saveTasks(next);
+  }
+
   function openEditor(task = null) {
     editingId = task ? task.id : null;
     el('taskForm').reset();
@@ -313,6 +384,8 @@
     el('saveButton').textContent = task ? 'Запази промените' : 'Добави задачата';
     el('taskTitle').value = task?.title || '';
     el('taskNote').value = task?.note || '';
+    el('newSubtask').value = '';
+    renderSubtaskEditor(task?.subtasks || []);
     const nextDay = new Date();
     if (view === 'upcoming') nextDay.setDate(nextDay.getDate() + 1);
     el('taskDate').value = task ? task.date : (view === 'calendar' ? selectedDate : localDate(nextDay));
@@ -332,6 +405,9 @@
     if (!isValidDate(date)) { showToast('Провери датата.'); return; }
     const repeat = el('taskRepeat').value;
     if (repeat !== 'none' && !date) { showToast('Избери дата за повтарящата се задача.'); el('taskDate').focus(); return; }
+    // Include a final typed subtask even if the + Добави button was not tapped.
+    if (el('newSubtask').value.trim() && !addSubtaskFromField()) return;
+    const subtasks = getEditedSubtasks();
     const previous = tasks.find((task) => task.id === editingId);
     const repeatDay = repeat === 'monthly'
       ? (previous && previous.repeat === 'monthly' && previous.date === date ? previous.repeatDay : dayOfMonth(date))
@@ -339,6 +415,7 @@
     const common = {
       title,
       note: el('taskNote').value.trim(),
+      subtasks,
       date,
       category: el('taskCategory').value,
       priority: el('taskPriority').value,
@@ -376,11 +453,16 @@
       if (saveTasks(restored)) showToast('Задачата е върната; следващото повторение е отменено.');
       return;
     }
+    if (!existing.done && existing.subtasks.some((part) => !part.done)) {
+      const left = existing.subtasks.filter((part) => !part.done).length;
+      if (!confirm(`Има ${left} неотметнати подзадачи. Да завърша ли цялата задача?`)) return;
+    }
     if (!existing.done && existing.repeat !== 'none') {
       if (!existing.date) { showToast('Повтарящата се задача няма дата. Редактирай я.'); return; }
       const nextDate = nextRepeatDate(existing);
       const generated = {
         ...existing, id: makeId(), date: nextDate, done: false,
+        subtasks: existing.subtasks.map((part) => ({ ...part, done: false })),
         createdAt: new Date().toISOString(), completedAt: null,
         previousId: existing.id, autoGenerated: true
       };
@@ -426,7 +508,7 @@
     if (saveTasks(tasks.filter((task) => task.id !== id))) showToast('Задачата е изтрита.');
   }
   function exportBackup() {
-    const backup = { app: 'MyDay', version: 3, exportedAt: new Date().toISOString(), tasks };
+    const backup = { app: 'MyDay', version: 4, exportedAt: new Date().toISOString(), tasks };
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -444,7 +526,7 @@
     try {
       if (file.size > 3 * 1024 * 1024) throw new Error('Файлът е твърде голям (макс. 3 MB).');
       const backup = JSON.parse(await file.text());
-      if (backup.app !== 'MyDay' || ![1, 2, 3].includes(backup.version) || !Array.isArray(backup.tasks) || backup.tasks.length > 5000) {
+      if (backup.app !== 'MyDay' || ![1, 2, 3, 4].includes(backup.version) || !Array.isArray(backup.tasks) || backup.tasks.length > 5000) {
         throw new Error('Това не е съвместим MyDay backup файл.');
       }
       const imported = backup.tasks.map(normalizeTask);
@@ -504,9 +586,23 @@
         if (button.dataset.action === 'delete') deleteTask(task.id);
         if (button.dataset.action === 'edit') openEditor(task);
         if (button.dataset.action === 'move') openMove(task);
+        if (button.dataset.action === 'expand') {
+          if (expandedSubtasks.has(task.id)) expandedSubtasks.delete(task.id);
+          else expandedSubtasks.add(task.id);
+          renderList();
+        }
+        if (button.dataset.action === 'subtask') toggleSubtask(task.id, button.dataset.subId);
       } else if (event.target.closest('#emptyAdd')) openEditor();
     });
     el('taskForm').addEventListener('submit', handleSubmit);
+    el('addSubtask').addEventListener('click', addSubtaskFromField);
+    el('newSubtask').addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') { event.preventDefault(); addSubtaskFromField(); }
+    });
+    el('subtaskEditorList').addEventListener('click', (event) => {
+      const button = event.target.closest('[data-remove-subtask]');
+      if (button) button.closest('.subtask-editor-row').remove();
+    });
     el('moveForm').addEventListener('submit', handleMove);
     el('closeMove').addEventListener('click', closeMove);
     el('cancelMove').addEventListener('click', closeMove);

@@ -208,3 +208,32 @@ textarea.text-input { resize: vertical; }
   .view { font-size: 10px; padding: 8px 3px; }
   .view span { margin-left: 1px; min-width: 15px; font-size: 9px; padding: 2px 3px; }
 }
+
+/* MyDay 0.4 — compact interactive checklists */
+.task-content { flex: 1; min-width: 0; }
+.task-content .task-main { width: 100%; }
+.subtask-panel { padding: 5px 0 2px; }
+.subtask-toggle { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 34px; gap: 8px; padding: 4px 0; border: 0; background: transparent; color: var(--accent-text); text-align: left; font-size: 12px; font-weight: 750; }
+.subtask-counter { display: inline-flex; align-items: center; gap: 5px; }
+.subtask-counter .icon { width: 14px; height: 14px; }
+.subtask-toggle-label { color: var(--muted); font-size: 11px; font-weight: 650; }
+.subtask-checklist { display: flex; flex-direction: column; gap: 5px; margin: 6px 0 2px; }
+.subtask-item { width: 100%; display: flex; align-items: center; gap: 9px; min-height: 37px; border: 1px solid var(--border); border-radius: 9px; padding: 7px 9px; background: var(--bg); color: var(--ink); text-align: left; font-size: 13px; line-height: 1.35; overflow-wrap: anywhere; }
+.subtask-item:disabled { cursor: default; opacity: .8; }
+.subtask-box { flex: none; display: grid; place-items: center; width: 19px; height: 19px; border-radius: 6px; border: 1.6px solid var(--muted); color: transparent; }
+.subtask-box .icon { width: 13px; height: 13px; stroke-width: 3; }
+.subtask-item.checked .subtask-box { background: var(--green); border-color: var(--green); color: white; }
+.subtask-item.checked .subtask-item-text { color: var(--muted); text-decoration: line-through; }
+.subtask-editor-list { display: flex; flex-direction: column; gap: 7px; }
+.subtask-editor-row, .subtask-add-row { display: flex; align-items: center; gap: 8px; }
+.subtask-editor-row .text-input, .subtask-add-row .text-input { min-width: 0; flex: 1; }
+.subtask-editor-check { flex: none; width: 21px; height: 21px; margin: 0 3px; accent-color: var(--green); }
+.subtask-editor-remove { flex: none; display: grid; place-items: center; width: 37px; height: 42px; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; color: var(--red); }
+.subtask-editor-remove .icon { width: 18px; height: 18px; }
+.subtask-add-row { margin-top: 9px; }
+.subtask-add-button { flex: none; min-height: 46px; padding: 9px 13px; border: 0; border-radius: 11px; background: var(--accent-soft); color: var(--accent-text); font-size: 12px; font-weight: 750; }
+.subtask-help { margin: 7px 0 0; color: var(--muted); font-size: 11px; line-height: 1.55; }
+@media (max-width: 390px) {
+  .subtask-add-button { padding: 9px 10px; }
+  .subtask-editor-row, .subtask-add-row { gap: 5px; }
+}

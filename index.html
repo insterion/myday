@@ -9,9 +9,9 @@
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" type="image/png" href="./icon-192.png">
   <link rel="apple-touch-icon" href="./icon-192.png">
-  <link rel="stylesheet" href="./styles.css?v=0.3">
+  <link rel="stylesheet" href="./styles.css?v=0.4">
   <title>MyDay · Моят ден</title>
-  <script defer src="./app.js?v=0.3"></script>
+  <script defer src="./app.js?v=0.4"></script>
 </head>
 <body>
   <svg class="svg-sprite" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
@@ -38,7 +38,7 @@
       <a class="brand" href="./" aria-label="MyDay — начало">
         <span class="brand-mark"><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg></span>
         <span>myday<span class="brand-dot">.</span></span>
-        <span class="version">0.3</span>
+        <span class="version">0.4</span>
       </a>
       <div class="top-actions">
         <button class="icon-button" id="themeButton" type="button" aria-label="Смени темата" title="Светла / тъмна тема">
@@ -119,7 +119,7 @@
       </section>
     </main>
 
-    <footer>MyDay 0.3 <span aria-hidden="true">·</span> Просто, лично и безплатно <span aria-hidden="true">·</span> Данните са на твоето устройство</footer>
+    <footer>MyDay 0.4 <span aria-hidden="true">·</span> Просто, лично и безплатно <span aria-hidden="true">·</span> Данните са на твоето устройство</footer>
   </div>
 
   <button id="mobileAdd" class="mobile-add" type="button" aria-label="Добави нова задача"><svg class="icon"><use href="#i-plus"/></svg></button>
@@ -136,6 +136,14 @@
 
         <label class="field-label" for="taskNote">Бележка <span class="optional">(по желание)</span></label>
         <textarea class="text-input" id="taskNote" name="note" rows="3" maxlength="1500" placeholder="Нещо важно за задачата..."></textarea>
+
+        <p class="field-label" id="subtaskLabel">Подзадачи <span class="optional">(по желание)</span></p>
+        <div id="subtaskEditorList" class="subtask-editor-list" role="group" aria-labelledby="subtaskLabel"></div>
+        <div class="subtask-add-row">
+          <input class="text-input" id="newSubtask" type="text" maxlength="100" placeholder="Например: Мляко" aria-label="Нова подзадача" autocomplete="off">
+          <button class="subtask-add-button" id="addSubtask" type="button" aria-label="Добави подзадача">+ Добави</button>
+        </div>
+        <p class="subtask-help">Добави до 30 подзадачи. Можеш да ги отмяташ направо от списъка със задачи.</p>
 
         <div class="field-grid">
           <div>
