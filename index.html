@@ -27,6 +27,7 @@
     <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 17V5m-5 5 5-5 5 5M4 17v4h16v-4"/></symbol>
     <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
     <symbol id="i-close" viewBox="0 0 24 24"><path d="M5 5 19 19M19 5 5 19"/></symbol>
+    <symbol id="i-repeat" viewBox="0 0 24 24"><path d="M4 7h13a4 4 0 0 1 4 4v2M17 3l4 4-4 4M20 17H7a4 4 0 0 1-4-4v-2M7 21l-4-4 4-4"/></symbol>
     <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="m12 2 2.1 7.9L22 12l-7.9 2.1L12 22l-2.1-7.9L2 12l7.9-2.1L12 2Z"/></symbol>
   </svg>
 
@@ -35,7 +36,7 @@
       <a class="brand" href="./" aria-label="MyDay — начало">
         <span class="brand-mark"><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg></span>
         <span>myday<span class="brand-dot">.</span></span>
-        <span class="version">0.1</span>
+        <span class="version">0.2</span>
       </a>
       <div class="top-actions">
         <button class="icon-button" id="themeButton" type="button" aria-label="Смени темата" title="Светла / тъмна тема">
@@ -101,7 +102,7 @@
       </section>
     </main>
 
-    <footer>MyDay 0.1 <span aria-hidden="true">·</span> Просто, лично и безплатно <span aria-hidden="true">·</span> Данните са на твоето устройство</footer>
+    <footer>MyDay 0.2 <span aria-hidden="true">·</span> Просто, лично и безплатно <span aria-hidden="true">·</span> Данните са на твоето устройство</footer>
   </div>
 
   <button id="mobileAdd" class="mobile-add" type="button" aria-label="Добави нова задача"><svg class="icon"><use href="#i-plus"/></svg></button>
@@ -135,11 +136,25 @@
             </select>
           </div>
         </div>
-        <label class="field-label" for="taskPriority">Важност</label>
-        <select class="text-input" id="taskPriority" name="priority">
-          <option value="normal">Обикновена</option>
-          <option value="high">Важна</option>
-        </select>
+        <div class="field-grid">
+          <div>
+            <label class="field-label" for="taskPriority">Важност</label>
+            <select class="text-input" id="taskPriority" name="priority">
+              <option value="normal">Обикновена</option>
+              <option value="high">Важна</option>
+            </select>
+          </div>
+          <div>
+            <label class="field-label" for="taskRepeat">Повтаряне</label>
+            <select class="text-input" id="taskRepeat" name="repeat">
+              <option value="none">Не се повтаря</option>
+              <option value="daily">Всеки ден</option>
+              <option value="weekly">Всяка седмица</option>
+              <option value="monthly">Всеки месец</option>
+            </select>
+          </div>
+        </div>
+        <p class="repeat-help" id="repeatHelp">При изпълнение на повтаряща се задача MyDay автоматично създава следващата дата. Нужна е избрана дата.</p>
       </div>
       <div class="dialog-footer">
         <button class="secondary-button" id="cancelDialog" type="button">Отказ</button>

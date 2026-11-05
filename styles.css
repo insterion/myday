@@ -89,6 +89,7 @@ h2 { margin: 0; letter-spacing: -.6px; font-size: 24px; }
 .pill.personal { background: #f4eaff; color: #8260a6; }
 .pill.shopping { background: #e6f6ed; color: #2b8a62; }
 .pill.overdue { background: #fff0ef; color: #ba4955; }
+.pill.repeating { background: var(--accent-soft); color: var(--accent-text); }
 .pill.important { background: #fff3dc; color: #a76a1e; }
 :root[data-theme="dark"] .pill.work { background: #283c5d; color: #a9c7ff; }
 :root[data-theme="dark"] .pill.personal { background: #402d56; color: #d6b6ff; }
@@ -118,6 +119,7 @@ footer { color: var(--muted); text-align: center; font-size: 11px; padding: 48px
 textarea.text-input { resize: vertical; }
 .text-input::placeholder { color: var(--muted); }
 .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.repeat-help { margin: 11px 0 0; color: var(--muted); font-size: 12px; line-height: 1.55; }
 .clear-date { display: inline-block; margin: 7px 0 0; border: 0; padding: 4px 0; color: var(--accent-text); background: transparent; font-weight: 700; font-size: 12px; }
 .dialog-footer { display: flex; justify-content: end; gap: 9px; padding: 17px 25px 25px; border-top: 1px solid var(--border); }
 .secondary-button { border: 1px solid var(--border); background: var(--surface2); color: var(--ink); border-radius: 11px; padding: 11px 16px; font-size: 14px; font-weight: 750; }

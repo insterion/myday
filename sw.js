@@ -1,4 +1,4 @@
-const CACHE_NAME = 'myday-0.1-static-v1';
+const CACHE_NAME = 'myday-0.2-static-v1';
 const FILES = ['./', './index.html', './styles.css', './app.js', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (event) => {
