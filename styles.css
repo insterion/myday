@@ -263,3 +263,22 @@ textarea.text-input { resize: vertical; }
   .quick-add-row input { font-size: 13px; }
   .quick-add-row button { padding: 8px 10px; }
 }
+
+/* MyDay 0.6 — recoverable trash and one-tap undo */
+.menu-panel .trash-count { margin-left: auto; min-width: 22px; padding: 3px 6px; border-radius: 7px; background: var(--surface2); color: var(--muted); font-size: 12px; font-weight: 750; text-align: center; }
+.toast.show { pointer-events: auto; }
+.toast-action { display: inline-block; margin-left: 12px; padding: 5px 8px; border: 1px solid rgba(255,255,255,.35); border-radius: 7px; color: white; background: rgba(255,255,255,.15); font-size: 13px; font-weight: 800; }
+.trash-dialog { width: min(550px, calc(100% - 30px)); }
+.trash-body { padding: 10px 25px 18px; overflow-y: auto; max-height: 55dvh; }
+.trash-hint { margin: 0 0 16px; line-height: 1.55; font-size: 13px; color: var(--muted); }
+.trash-list { display: flex; flex-direction: column; gap: 10px; }
+.trash-item { background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
+.trash-item-content { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.trash-item-content strong { font-size: 14px; overflow-wrap: anywhere; }
+.trash-item-content span { font-size: 12px; color: var(--muted); }
+.trash-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.trash-actions button { min-height: 40px; padding: 8px 12px; border-radius: 9px; font-size: 12px; font-weight: 750; }
+.trash-restore { background: var(--accent-soft); color: var(--accent-text); border: 1px solid transparent; }
+.trash-permanent { background: transparent; color: var(--red); border: 1px solid var(--border); }
+.trash-empty { margin: 0; padding: 30px 8px; text-align: center; color: var(--muted); font-size: 14px; }
+@media (max-width: 670px) { .trash-body { padding: 8px 18px 16px; } .trash-dialog .dialog-header { padding: 20px 18px 10px; } }

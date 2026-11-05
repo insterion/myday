@@ -9,9 +9,9 @@
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" type="image/png" href="./icon-192.png">
   <link rel="apple-touch-icon" href="./icon-192.png">
-  <link rel="stylesheet" href="./styles.css?v=0.5">
+  <link rel="stylesheet" href="./styles.css?v=0.6">
   <title>MyDay · Моят ден</title>
-  <script defer src="./app.js?v=0.5"></script>
+  <script defer src="./app.js?v=0.6"></script>
 </head>
 <body>
   <svg class="svg-sprite" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
@@ -38,7 +38,7 @@
       <a class="brand" href="./" aria-label="MyDay — начало">
         <span class="brand-mark"><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg></span>
         <span>myday<span class="brand-dot">.</span></span>
-        <span class="version">0.5</span>
+        <span class="version">0.6</span>
       </a>
       <div class="top-actions">
         <button class="icon-button" id="themeButton" type="button" aria-label="Смени темата" title="Светла / тъмна тема">
@@ -52,7 +52,8 @@
             <div class="menu-heading">Моите данни</div>
             <button id="exportButton" type="button"><svg class="icon"><use href="#i-download"/></svg> Запази backup</button>
             <button id="importButton" type="button"><svg class="icon"><use href="#i-upload"/></svg> Зареди backup</button>
-            <p>Задачите се пазят само в този браузър. Прави резервни копия редовно.</p>
+            <button id="trashButton" type="button"><svg class="icon"><use href="#i-trash"/></svg> Кошче <span id="trashCount" class="trash-count">0</span></button>
+            <p>Задачите и кошчето се пазят в този браузър. Backup включва и двете.</p>
           </div>
         </details>
         <input id="importFile" type="file" accept=".json,application/json" hidden>
@@ -135,7 +136,7 @@
       </section>
     </main>
 
-    <footer>MyDay 0.5 <span aria-hidden="true">·</span> Просто, лично и безплатно <span aria-hidden="true">·</span> Данните са на твоето устройство</footer>
+    <footer>MyDay 0.6 <span aria-hidden="true">·</span> Просто, лично и безплатно <span aria-hidden="true">·</span> Данните са на твоето устройство</footer>
   </div>
 
   <button id="mobileAdd" class="mobile-add" type="button" aria-label="Добави нова задача"><svg class="icon"><use href="#i-plus"/></svg></button>
@@ -232,6 +233,17 @@
         <button class="save-button" type="submit">Запази датата</button>
       </div>
     </form>
+  </dialog>
+  <dialog id="trashDialog" class="task-dialog trash-dialog" aria-labelledby="trashTitle">
+    <div class="dialog-header">
+      <div><p class="eyebrow muted">МОИТЕ ДАННИ</p><h2 id="trashTitle">Кошче</h2></div>
+      <button class="icon-button" id="closeTrash" type="button" aria-label="Затвори кошчето"><svg class="icon"><use href="#i-close"/></svg></button>
+    </div>
+    <div class="trash-body">
+      <p class="trash-hint">Тук са изтритите задачи. Можеш да ги възстановиш или да ги изтриеш окончателно. Нищо не се изтрива автоматично от кошчето.</p>
+      <div id="trashList" class="trash-list"></div>
+    </div>
+    <div class="dialog-footer"><button class="secondary-button" id="closeTrashBottom" type="button">Затвори</button></div>
   </dialog>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 </body>
