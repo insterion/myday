@@ -9,9 +9,9 @@
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" type="image/png" href="./icon-192.png">
   <link rel="apple-touch-icon" href="./icon-192.png">
-  <link rel="stylesheet" href="./styles.css?v=1.2">
+  <link rel="stylesheet" href="./styles.css?v=1.3">
   <title>MyDay · Моят ден</title>
-  <script defer src="./app.js?v=1.2"></script>
+  <script defer src="./app.js?v=1.3"></script>
 </head>
 <body>
   <svg class="svg-sprite" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
@@ -39,7 +39,7 @@
       <a class="brand" href="./" aria-label="MyDay — начало">
         <span class="brand-mark"><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg></span>
         <span>myday<span class="brand-dot">.</span></span>
-        <span class="version">1.2</span>
+        <span class="version">1.3</span>
       </a>
       <div class="top-actions">
         <button class="icon-button" id="themeButton" type="button" aria-label="Смени темата" title="Светла / тъмна тема">
@@ -95,7 +95,7 @@
         <button class="view active" type="button" data-view="today" aria-current="page">Днес <span id="countToday">0</span></button>
         <button class="view" type="button" data-view="upcoming">Предстоящи <span id="countUpcoming">0</span></button>
         <button class="view" type="button" data-view="all">Всички <span id="countAll">0</span></button>
-        <button class="view" type="button" data-view="done">Готови <span id="countDone">0</span></button>
+        <button class="view" type="button" data-view="done">История <span id="countDone">0</span></button>
       </nav>
 
       <section class="tasks-section" aria-labelledby="listTitle">
@@ -116,7 +116,7 @@
           </div>
           <div class="calendar-weekdays" aria-hidden="true"><span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span>Сб</span><span>Нд</span></div>
           <div class="calendar-grid" id="calendarGrid" role="group" aria-label="Избери ден"></div>
-          <p class="calendar-hint">Точката показва ден с планирани, неизпълнени задачи. Докосни дата, за да ги видиш.</p>
+          <p class="calendar-hint">Точката показва ден с активни задачи. Докосни дата, за да ги видиш.</p>
         </section>
         <form id="quickAddForm" class="quick-add" aria-label="Бързо добавяне на задача">
           <div class="quick-add-row">
@@ -188,7 +188,7 @@
       </section>
     </main>
 
-    <footer>MyDay 1.2 <span aria-hidden="true">·</span> Просто, лично и безплатно <span aria-hidden="true">·</span> Данните са на твоето устройство <span id="offlineStatus" class="offline-status" hidden>· Офлайн режим</span></footer>
+    <footer>MyDay 1.3 <span aria-hidden="true">·</span> Просто, лично и безплатно <span aria-hidden="true">·</span> Данните са на твоето устройство <span id="offlineStatus" class="offline-status" hidden>· Офлайн режим</span></footer>
   </div>
 
   <button id="mobileAdd" class="mobile-add" type="button" aria-label="Добави нова задача"><svg class="icon"><use href="#i-plus"/></svg></button>
@@ -255,7 +255,7 @@
             </select>
           </div>
         </div>
-        <p class="repeat-help" id="repeatHelp">При изпълнение на повтаряща се задача MyDay автоматично създава следващата дата. Нужна е избрана дата.</p>
+        <p class="repeat-help" id="repeatHelp">При изпълнение или пропускане на едно повторение MyDay създава следващата дата. Нужна е избрана дата.</p>
       </div>
       <div class="dialog-footer task-dialog-footer">
         <p id="draftStatus" class="draft-status" role="status" aria-live="polite">Няма незапазени промени</p>
