@@ -1,5 +1,5 @@
-const CACHE_NAME = 'myday-0.4-static-v1';
-const FILES = ['./', './index.html', './styles.css?v=0.4', './app.js?v=0.4', './manifest.json', './icon-192.png', './icon-512.png'];
+const CACHE_NAME = 'myday-0.5-static-v1';
+const FILES = ['./', './index.html', './styles.css?v=0.5', './app.js?v=0.5', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(FILES)).then(() => self.skipWaiting()));

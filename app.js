@@ -16,6 +16,7 @@
   };
   const el = (id) => document.getElementById(id);
   const icon = (name) => `<svg class="icon" aria-hidden="true"><use href="#i-${name}"></use></svg>`;
+  const MAX_SUBTASKS = 30;
   let tasks = readTasks();
   let view = 'today';
   let editingId = null;
@@ -24,7 +25,7 @@
   let monthCursor = selectedDate.slice(0, 7);
   let toastTimer = null;
   const expandedSubtasks = new Set();
-  const MAX_SUBTASKS = 30;
+  const pendingOnlySubtasks = new Set();
 
   function localDate(date = new Date()) {
     const y = date.getFullYear();
@@ -271,11 +272,16 @@
     const total = task.subtasks.length;
     const checked = task.subtasks.filter((part) => part.done).length;
     const expanded = expandedSubtasks.has(task.id);
+    const onlyPending = !task.done && pendingOnlySubtasks.has(task.id);
+    const visibleParts = onlyPending ? task.subtasks.filter((part) => !part.done) : task.subtasks;
     const checklist = total ? `<div class="subtask-panel">
       <button type="button" class="subtask-toggle" data-action="expand" data-id="${escapeHtml(task.id)}" aria-expanded="${expanded}" aria-label="${expanded ? 'Скрий' : 'Покажи'} подзадачите: ${escapeHtml(task.title)}">
         <span class="subtask-counter">${icon('check')} ${checked} / ${total} подзадачи</span><span class="subtask-toggle-label">${expanded ? 'Скрий' : 'Покажи списъка'}</span>
       </button>
-      ${expanded ? `<div class="subtask-checklist">${task.subtasks.map((part) => `<button type="button" class="subtask-item${part.done ? ' checked' : ''}" data-action="subtask" data-id="${escapeHtml(task.id)}" data-sub-id="${escapeHtml(part.id)}" ${task.done ? 'disabled' : ''} aria-pressed="${part.done}" aria-label="${part.done ? 'Премахни отметката от' : 'Отметни'}: ${escapeHtml(part.text)}"><span class="subtask-box">${icon('check')}</span><span class="subtask-item-text">${escapeHtml(part.text)}</span></button>`).join('')}</div>` : ''}
+      ${expanded ? `<div class="subtask-checklist">
+        ${!task.done && checked > 0 ? `<div class="subtask-tools"><button type="button" data-action="pending-only" data-id="${escapeHtml(task.id)}" aria-pressed="${onlyPending}">${onlyPending ? 'Покажи всички' : 'Само оставащите'} (${total - checked})</button></div>` : ''}
+        ${visibleParts.length ? visibleParts.map((part) => `<button type="button" class="subtask-item${part.done ? ' checked' : ''}" data-action="subtask" data-id="${escapeHtml(task.id)}" data-sub-id="${escapeHtml(part.id)}" ${task.done ? 'disabled' : ''} aria-pressed="${part.done}" aria-label="${part.done ? 'Премахни отметката от' : 'Отметни'}: ${escapeHtml(part.text)}"><span class="subtask-box">${icon('check')}</span><span class="subtask-item-text">${escapeHtml(part.text)}</span></button>`).join('') : '<p class="subtask-all-done">Всички подзадачи са отметнати.</p>'}
+      </div>` : ''}
       </div>` : '';
     return `<article class="task-card${task.done ? ' completed' : ''}">
       <button type="button" class="task-check" data-action="toggle" data-id="${escapeHtml(task.id)}" aria-label="${task.done ? 'Върни като неизпълнена' : 'Маркирай като изпълнена'}: ${escapeHtml(task.title)}">${icon('check')}</button>
@@ -330,9 +336,41 @@
       ${!hasFilter && view !== 'done' ? '<button type="button" id="emptyAdd">+ Добави задача</button>' : ''}
     </div>`;
   }
+  function quickDate() {
+    if (view === 'calendar') return selectedDate;
+    if (view === 'upcoming') {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      return localDate(tomorrow);
+    }
+    return localDate();
+  }
+  function renderQuickAdd() {
+    const date = quickDate();
+    el('quickDateLabel').textContent = `Дата: ${prettyDate(date)}`;
+  }
+  function submitQuickTask(event) {
+    event.preventDefault();
+    const input = el('quickTitle');
+    const title = input.value.trim();
+    if (!title) return;
+    const category = el('quickCategory').value;
+    const task = normalizeTask({
+      id: makeId(), title, note: '', subtasks: [], date: quickDate(),
+      category, priority: 'normal', repeat: 'none', done: false,
+      createdAt: new Date().toISOString()
+    });
+    if (task && saveTasks([task, ...tasks])) {
+      input.value = '';
+      if (view === 'done') { view = 'today'; render(); }
+      input.focus();
+      showToast('Задачата е добавена.');
+    }
+  }
   function render() {
     renderHeader();
     renderCalendar();
+    renderQuickAdd();
     renderList();
   }
 
@@ -357,6 +395,41 @@
     el('subtaskEditorList').append(wrapper.firstElementChild);
     el('newSubtask').value = '';
     el('newSubtask').focus();
+    return true;
+  }
+  function addBulkSubtasks() {
+    const bulk = el('bulkSubtaskText');
+    const lines = bulk.value.split(/\r?\n/).map((line) => line.trim().slice(0, 100)).filter(Boolean);
+    if (!lines.length) { bulk.focus(); return false; }
+    const list = el('subtaskEditorList');
+    const existingRows = Array.from(list.querySelectorAll('.subtask-editor-row'));
+    const seen = new Set(existingRows.map((row) => row.querySelector('.subtask-editor-text').value.trim().toLocaleLowerCase('bg-BG')).filter(Boolean));
+    const unique = [];
+    let duplicates = 0;
+    for (const value of lines) {
+      const key = value.toLocaleLowerCase('bg-BG');
+      if (seen.has(key)) { duplicates++; continue; }
+      seen.add(key);
+      unique.push(value);
+    }
+    const remaining = MAX_SUBTASKS - existingRows.length;
+    if (unique.length > remaining) {
+      showToast(`Има място за още ${remaining} реда. Намали списъка преди запис.`);
+      return false; // Do not silently drop any pasted lines.
+    }
+    const fragment = document.createDocumentFragment();
+    for (const value of unique) {
+      const wrapper = document.createElement('div');
+      wrapper.innerHTML = `<div class="subtask-editor-row" data-sub-id="${escapeHtml(makeId())}">
+        <input type="checkbox" class="subtask-editor-check" aria-label="Изпълнена подзадача: ${escapeHtml(value)}">
+        <input type="text" class="text-input subtask-editor-text" value="${escapeHtml(value)}" maxlength="100" aria-label="Текст на подзадача">
+        <button class="subtask-editor-remove" type="button" data-remove-subtask aria-label="Премахни подзадача: ${escapeHtml(value)}" title="Премахни">${icon('trash')}</button>
+      </div>`;
+      fragment.append(wrapper.firstElementChild);
+    }
+    if (unique.length) list.append(fragment);
+    bulk.value = '';
+    showToast(unique.length ? `Добавени ${unique.length} подзадачи${duplicates ? `, пропуснати повторения: ${duplicates}` : ''}.` : 'Тези подзадачи вече са в списъка.');
     return true;
   }
   function getEditedSubtasks() {
@@ -385,6 +458,8 @@
     el('taskTitle').value = task?.title || '';
     el('taskNote').value = task?.note || '';
     el('newSubtask').value = '';
+    el('bulkSubtaskText').value = '';
+    el('bulkSubtasks').open = false;
     renderSubtaskEditor(task?.subtasks || []);
     const nextDay = new Date();
     if (view === 'upcoming') nextDay.setDate(nextDay.getDate() + 1);
@@ -407,6 +482,7 @@
     if (repeat !== 'none' && !date) { showToast('Избери дата за повтарящата се задача.'); el('taskDate').focus(); return; }
     // Include a final typed subtask even if the + Добави button was not tapped.
     if (el('newSubtask').value.trim() && !addSubtaskFromField()) return;
+    if (el('bulkSubtaskText').value.trim() && !addBulkSubtasks()) return;
     const subtasks = getEditedSubtasks();
     const previous = tasks.find((task) => task.id === editingId);
     const repeatDay = repeat === 'monthly'
@@ -575,7 +651,10 @@
       if (button) selectCalendarDate(button.dataset.calendarDate);
     });
     el('searchInput').addEventListener('input', renderList);
-    el('categoryFilter').addEventListener('change', renderList);
+    el('categoryFilter').addEventListener('change', () => {
+      if (el('categoryFilter').value !== 'all') el('quickCategory').value = el('categoryFilter').value;
+      renderList();
+    });
     for (const id of ['addButton', 'mobileAdd']) el(id).addEventListener('click', () => openEditor());
     el('taskList').addEventListener('click', (event) => {
       const button = event.target.closest('button[data-action]');
@@ -592,9 +671,16 @@
           renderList();
         }
         if (button.dataset.action === 'subtask') toggleSubtask(task.id, button.dataset.subId);
+        if (button.dataset.action === 'pending-only') {
+          if (pendingOnlySubtasks.has(task.id)) pendingOnlySubtasks.delete(task.id);
+          else pendingOnlySubtasks.add(task.id);
+          renderList();
+        }
       } else if (event.target.closest('#emptyAdd')) openEditor();
     });
     el('taskForm').addEventListener('submit', handleSubmit);
+    el('quickAddForm').addEventListener('submit', submitQuickTask);
+    el('bulkSubtaskAdd').addEventListener('click', addBulkSubtasks);
     el('addSubtask').addEventListener('click', addSubtaskFromField);
     el('newSubtask').addEventListener('keydown', (event) => {
       if (event.key === 'Enter') { event.preventDefault(); addSubtaskFromField(); }

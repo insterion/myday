@@ -9,9 +9,9 @@
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" type="image/png" href="./icon-192.png">
   <link rel="apple-touch-icon" href="./icon-192.png">
-  <link rel="stylesheet" href="./styles.css?v=0.4">
+  <link rel="stylesheet" href="./styles.css?v=0.5">
   <title>MyDay · Моят ден</title>
-  <script defer src="./app.js?v=0.4"></script>
+  <script defer src="./app.js?v=0.5"></script>
 </head>
 <body>
   <svg class="svg-sprite" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
@@ -38,7 +38,7 @@
       <a class="brand" href="./" aria-label="MyDay — начало">
         <span class="brand-mark"><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg></span>
         <span>myday<span class="brand-dot">.</span></span>
-        <span class="version">0.4</span>
+        <span class="version">0.5</span>
       </a>
       <div class="top-actions">
         <button class="icon-button" id="themeButton" type="button" aria-label="Смени темата" title="Светла / тъмна тема">
@@ -100,8 +100,24 @@
           <div class="calendar-grid" id="calendarGrid" role="group" aria-label="Избери ден"></div>
           <p class="calendar-hint">Точката показва ден с планирани, неизпълнени задачи. Докосни дата, за да ги видиш.</p>
         </section>
-        <div class="filters">
-          <label class="search-field">
+        <form id="quickAddForm" class="quick-add" aria-label="Бързо добавяне на задача">
+          <div class="quick-add-row">
+            <svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg>
+            <input id="quickTitle" name="quickTitle" type="text" maxlength="160" autocomplete="off" placeholder="Запиши задача за секунди..." aria-label="Име на новата задача" required>
+            <button type="submit">Добави</button>
+          </div>
+          <div class="quick-add-meta">
+            <span id="quickDateLabel">Дата: Днес</span>
+            <label for="quickCategory">Категория:</label>
+            <select id="quickCategory" aria-label="Категория на бързата задача">
+              <option value="personal">Лични</option>
+              <option value="work">Работа</option>
+              <option value="shopping">Пазаруване</option>
+              <option value="other">Други</option>
+            </select>
+          </div>
+        </form>
+        <div class="filters">          <label class="search-field">
             <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
             <input id="searchInput" type="search" placeholder="Търси задача..." autocomplete="off" aria-label="Търси задачи">
           </label>
@@ -119,7 +135,7 @@
       </section>
     </main>
 
-    <footer>MyDay 0.4 <span aria-hidden="true">·</span> Просто, лично и безплатно <span aria-hidden="true">·</span> Данните са на твоето устройство</footer>
+    <footer>MyDay 0.5 <span aria-hidden="true">·</span> Просто, лично и безплатно <span aria-hidden="true">·</span> Данните са на твоето устройство</footer>
   </div>
 
   <button id="mobileAdd" class="mobile-add" type="button" aria-label="Добави нова задача"><svg class="icon"><use href="#i-plus"/></svg></button>
@@ -144,6 +160,13 @@
           <button class="subtask-add-button" id="addSubtask" type="button" aria-label="Добави подзадача">+ Добави</button>
         </div>
         <p class="subtask-help">Добави до 30 подзадачи. Можеш да ги отмяташ направо от списъка със задачи.</p>
+        <details class="bulk-subtasks" id="bulkSubtasks">
+          <summary>Добави много редове наведнъж</summary>
+          <p>Напиши или постави списък — по един продукт или действие на ред.</p>
+          <label class="visually-hidden" for="bulkSubtaskText">Редове за добавяне</label>
+          <textarea id="bulkSubtaskText" class="text-input" rows="4" maxlength="6000" placeholder="Мляко&#10;Кафе&#10;Салфетки"></textarea>
+          <button type="button" id="bulkSubtaskAdd" class="bulk-add-button">Добави редовете</button>
+        </details>
 
         <div class="field-grid">
           <div>
