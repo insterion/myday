@@ -301,3 +301,34 @@ textarea.text-input { resize: vertical; }
   .task-pin { width: 28px; }
   .task-card.pinned { padding-left: 10px; }
 }
+
+
+/* MyDay 0.8 — clearer daily focus and unscheduled tasks */
+.task-group { margin-bottom: 11px; scroll-margin-top: 16px; }
+.task-group-heading { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin: 5px 0 11px; padding: 0 4px 0 12px; border-left: 3px solid var(--border); }
+.task-group-heading-copy { min-width: 0; }
+.task-group-heading h3 { margin: 0; font-size: 15px; font-weight: 800; letter-spacing: -.2px; }
+.task-group-heading p { margin: 3px 0 0; color: var(--muted); font-size: 11px; line-height: 1.35; }
+.task-group-count { min-width: 27px; border-radius: 9px; padding: 5px 8px; text-align: center; font-size: 12px; font-weight: 800; color: var(--muted); background: var(--surface2); }
+.task-group-cards { display: flex; flex-direction: column; gap: 10px; }
+.task-group-pinned .task-group-heading { border-left-color: var(--accent); }
+.task-group-pinned .task-group-heading h3 { color: var(--accent-text); }
+.task-group-overdue .task-group-heading { border-left-color: var(--red); }
+.task-group-overdue .task-group-heading h3 { color: var(--red); }
+.task-group-today .task-group-heading { border-left-color: var(--green); }
+.task-group-upcoming .task-group-heading { border-left-color: var(--accent); }
+.task-group-unscheduled .task-group-heading { border-left-color: var(--muted); }
+.pill.unscheduled { background: var(--surface2); color: var(--muted); border: 1px dashed var(--border); }
+.pill.due-today { background: var(--green-soft); color: #0e7956; }
+:root[data-theme="dark"] .pill.due-today { color: var(--green); }
+.undated-notice { display: flex; align-items: center; gap: 10px; margin-bottom: 17px; padding: 12px 13px; background: var(--surface); border: 1px dashed var(--border); border-radius: 13px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.undated-notice[hidden] { display: none; }
+.undated-notice-symbol { flex: none; display: grid; place-items: center; width: 24px; height: 24px; background: var(--surface2); border-radius: 8px; font-size: 13px; font-weight: 850; }
+.undated-notice #undatedNoticeText { flex: 1; min-width: 0; }
+.undated-notice button { flex: none; min-height: 36px; border: 0; border-radius: 9px; padding: 7px 10px; background: var(--accent-soft); color: var(--accent-text); font-size: 12px; font-weight: 750; }
+@media (max-width: 390px) {
+  .task-group-heading { padding-left: 9px; }
+  .undated-notice { flex-wrap: wrap; }
+  .undated-notice #undatedNoticeText { flex-basis: calc(100% - 36px); }
+  .undated-notice button { margin-left: 34px; }
+}

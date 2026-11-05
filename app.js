@@ -295,7 +295,7 @@
   function taskHtml(task) {
     const today = localDate();
     const late = !task.done && task.date && task.date < today;
-    const dateClass = late ? ' overdue' : '';
+    const dateClass = late ? ' overdue' : !task.date ? ' unscheduled' : task.date === today ? ' due-today' : '';
     const dateText = late ? `Просрочено · ${prettyDate(task.date)}` : prettyDate(task.date);
     const total = task.subtasks.length;
     const checked = task.subtasks.filter((part) => part.done).length;
@@ -332,6 +332,48 @@
       <button type="button" class="task-remove" data-action="delete" data-id="${escapeHtml(task.id)}" aria-label="Изтрий: ${escapeHtml(task.title)}" title="Изтрий">${icon('trash')}</button>
     </article>`;
   }
+  // Group tasks visually without changing their order in storage.
+  // Pinned tasks appear first, followed by date groups in a stable order.
+  function groupHtml(visible) {
+    const today = localDate();
+    const pinned = visible.filter((task) => task.pinned);
+    const rest = visible.filter((task) => !task.pinned);
+    const sections = [
+      { key: 'pinned', title: 'Закрепени', hint: 'Задачи, които искаш да виждаш първи', items: pinned },
+      { key: 'overdue', title: 'Просрочени', hint: 'Планирани за минали дни', items: rest.filter((task) => task.date && task.date < today) },
+      { key: 'today', title: 'За днес', hint: 'Задачи с днешна дата', items: rest.filter((task) => task.date === today) }
+    ];
+    if (view === 'all') {
+      sections.push(
+        { key: 'upcoming', title: 'Предстоящи', hint: 'Планирани за следващи дни', items: rest.filter((task) => task.date > today) },
+        { key: 'unscheduled', title: 'Без дата', hint: 'Задачи, които още не си планирал', items: rest.filter((task) => !task.date) }
+      );
+    }
+    return sections.filter((section) => section.items.length).map((section) => `
+      <section class="task-group task-group-${section.key}" data-section="${section.key}" aria-label="${section.title}">
+        <div class="task-group-heading">
+          <div class="task-group-heading-copy"><h3>${section.title}</h3><p>${section.hint}</p></div>
+          <span class="task-group-count" aria-label="${section.items.length} задачи">${section.items.length}</span>
+        </div>
+        <div class="task-group-cards">${section.items.map(taskHtml).join('')}</div>
+      </section>`).join('');
+  }
+
+  function renderUndatedNotice() {
+    const notice = el('undatedNotice');
+    if (view !== 'today') { notice.hidden = true; return; }
+    const category = el('categoryFilter').value;
+    const q = el('searchInput').value.trim().toLocaleLowerCase('bg-BG');
+    const count = tasks.filter((task) => {
+      if (task.done || task.deletedAt || task.date) return false;
+      if (category !== 'all' && category !== task.category) return false;
+      if (q && !(task.title + ' ' + task.note + ' ' + task.subtasks.map((part) => part.text).join(' ')).toLocaleLowerCase('bg-BG').includes(q)) return false;
+      return true;
+    }).length;
+    notice.hidden = !count;
+    if (count) el('undatedNoticeText').textContent = `${count} ${count === 1 ? 'задача без дата' : 'задачи без дата'} — можеш да ги планираш по-късно.`;
+  }
+
   function renderList() {
     el('sectionEyebrow').textContent = VIEWS[view][0];
     el('listTitle').textContent = view === 'calendar'
@@ -346,8 +388,9 @@
     });
 
     const visible = getVisibleTasks();
+    renderUndatedNotice();
     if (visible.length) {
-      el('taskList').innerHTML = visible.map(taskHtml).join('');
+      el('taskList').innerHTML = view === 'today' || view === 'all' ? groupHtml(visible) : visible.map(taskHtml).join('');
       return;
     }
     const hasFilter = Boolean(el('searchInput').value.trim()) || el('categoryFilter').value !== 'all';
@@ -749,6 +792,12 @@
       if (button) selectCalendarDate(button.dataset.calendarDate);
     });
     el('searchInput').addEventListener('input', renderList);
+    el('viewUndated').addEventListener('click', () => {
+      view = 'all';
+      render();
+      const section = el('taskList').querySelector('[data-section="unscheduled"]');
+      if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
     el('categoryFilter').addEventListener('change', () => {
       if (el('categoryFilter').value !== 'all') el('quickCategory').value = el('categoryFilter').value;
       renderList();

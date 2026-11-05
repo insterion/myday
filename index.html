@@ -9,9 +9,9 @@
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" type="image/png" href="./icon-192.png">
   <link rel="apple-touch-icon" href="./icon-192.png">
-  <link rel="stylesheet" href="./styles.css?v=0.7">
+  <link rel="stylesheet" href="./styles.css?v=0.8">
   <title>MyDay · Моят ден</title>
-  <script defer src="./app.js?v=0.7"></script>
+  <script defer src="./app.js?v=0.8"></script>
 </head>
 <body>
   <svg class="svg-sprite" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
@@ -39,7 +39,7 @@
       <a class="brand" href="./" aria-label="MyDay — начало">
         <span class="brand-mark"><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg></span>
         <span>myday<span class="brand-dot">.</span></span>
-        <span class="version">0.7</span>
+        <span class="version">0.8</span>
       </a>
       <div class="top-actions">
         <button class="icon-button" id="themeButton" type="button" aria-label="Смени темата" title="Светла / тъмна тема">
@@ -140,13 +140,18 @@
             <option value="priority">По важност</option>
             <option value="newest">Най-нови</option>
           </select>
-          <span class="sort-hint">Закрепените са най-отгоре</span>
+          <span class="sort-hint">Закрепените са най-отгоре; подреждането важи във всяка група</span>
+        </div>
+        <div class="undated-notice" id="undatedNotice" hidden>
+          <span class="undated-notice-symbol" aria-hidden="true">?</span>
+          <span id="undatedNoticeText">Имаш задачи без дата.</span>
+          <button id="viewUndated" type="button">Виж ги</button>
         </div>
         <div id="taskList" class="task-list" aria-live="polite"></div>
       </section>
     </main>
 
-    <footer>MyDay 0.7 <span aria-hidden="true">·</span> Просто, лично и безплатно <span aria-hidden="true">·</span> Данните са на твоето устройство</footer>
+    <footer>MyDay 0.8 <span aria-hidden="true">·</span> Просто, лично и безплатно <span aria-hidden="true">·</span> Данните са на твоето устройство</footer>
   </div>
 
   <button id="mobileAdd" class="mobile-add" type="button" aria-label="Добави нова задача"><svg class="icon"><use href="#i-plus"/></svg></button>
