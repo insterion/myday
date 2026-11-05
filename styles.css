@@ -282,3 +282,22 @@ textarea.text-input { resize: vertical; }
 .trash-permanent { background: transparent; color: var(--red); border: 1px solid var(--border); }
 .trash-empty { margin: 0; padding: 30px 8px; text-align: center; color: var(--muted); font-size: 14px; }
 @media (max-width: 670px) { .trash-body { padding: 8px 18px 16px; } .trash-dialog .dialog-header { padding: 20px 18px 10px; } }
+
+/* MyDay 0.7 — pin important tasks and choose sort order */
+.sort-controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 7px 10px; margin: -5px 0 15px; color: var(--muted); font-size: 12px; }
+.sort-controls[hidden] { display: none; }
+.sort-controls label { font-weight: 700; white-space: nowrap; }
+.sort-controls select { border: 1px solid var(--border); border-radius: 9px; padding: 7px 10px; min-height: 36px; background: var(--surface); color: var(--ink); font-size: 12px; font-weight: 650; }
+.sort-hint { color: var(--muted); font-size: 11px; }
+.task-pin { flex: none; display: grid; place-items: center; width: 31px; height: 36px; border: none; border-radius: 10px; background: transparent; color: var(--muted); }
+.task-pin .icon { width: 18px; height: 18px; }
+.task-pin:hover { color: var(--accent-text); background: var(--accent-soft); }
+.task-pin.active { color: var(--accent-text); background: var(--accent-soft); }
+.task-card.pinned { border-left: 3px solid var(--accent); padding-left: 14px; }
+.pill.pinned-pill { background: var(--accent-soft); color: var(--accent-text); }
+@media (max-width: 670px) {
+  .sort-controls { margin-top: -7px; gap: 6px; }
+  .sort-hint { width: 100%; text-align: right; }
+  .task-pin { width: 28px; }
+  .task-card.pinned { padding-left: 10px; }
+}

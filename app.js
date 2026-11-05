@@ -3,6 +3,8 @@
 
   const TASKS_KEY = 'myday.tasks.v1';
   const THEME_KEY = 'myday.theme.v1';
+  const SORT_KEY = 'myday.sort.v1';
+  const SORT_MODES = ['date', 'priority', 'newest'];
   const CATEGORIES = {
     work: 'Работа', personal: 'Лични', shopping: 'Пазаруване', other: 'Други'
   };
@@ -18,6 +20,7 @@
   const icon = (name) => `<svg class="icon" aria-hidden="true"><use href="#i-${name}"></use></svg>`;
   const MAX_SUBTASKS = 30;
   let tasks = readTasks();
+  let sortMode = 'date';
   let view = 'today';
   let editingId = null;
   let movingId = null;
@@ -109,6 +112,7 @@
       date,
       category: Object.hasOwn(CATEGORIES, raw.category) ? raw.category : 'other',
       priority: raw.priority === 'high' ? 'high' : 'normal',
+      pinned: raw.pinned === true,
       repeat,
       repeatDay,
       previousId: safeString(raw.previousId, 100) || null,
@@ -275,9 +279,15 @@
     });
     const prio = (task) => task.priority === 'high' ? 0 : 1;
     result.sort((a, b) => {
+      // Finished tasks retain completion order regardless of pin and sort choices.
       if (view === 'done') return (b.completedAt || '').localeCompare(a.completedAt || '');
+      if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
       const dateDiff = (a.date || '9999').localeCompare(b.date || '9999');
-      return dateDiff || prio(a) - prio(b) || b.createdAt.localeCompare(a.createdAt);
+      const priorityDiff = prio(a) - prio(b);
+      const newestDiff = b.createdAt.localeCompare(a.createdAt);
+      if (sortMode === 'priority') return priorityDiff || dateDiff || newestDiff;
+      if (sortMode === 'newest') return newestDiff || dateDiff || priorityDiff;
+      return dateDiff || priorityDiff || newestDiff;
     });
     return result;
   }
@@ -301,7 +311,7 @@
         ${visibleParts.length ? visibleParts.map((part) => `<button type="button" class="subtask-item${part.done ? ' checked' : ''}" data-action="subtask" data-id="${escapeHtml(task.id)}" data-sub-id="${escapeHtml(part.id)}" ${task.done ? 'disabled' : ''} aria-pressed="${part.done}" aria-label="${part.done ? 'Премахни отметката от' : 'Отметни'}: ${escapeHtml(part.text)}"><span class="subtask-box">${icon('check')}</span><span class="subtask-item-text">${escapeHtml(part.text)}</span></button>`).join('') : '<p class="subtask-all-done">Всички подзадачи са отметнати.</p>'}
       </div>` : ''}
       </div>` : '';
-    return `<article class="task-card${task.done ? ' completed' : ''}">
+    return `<article class="task-card${task.done ? ' completed' : ''}${!task.done && task.pinned ? ' pinned' : ''}">
       <button type="button" class="task-check" data-action="toggle" data-id="${escapeHtml(task.id)}" aria-label="${task.done ? 'Върни като неизпълнена' : 'Маркирай като изпълнена'}: ${escapeHtml(task.title)}">${icon('check')}</button>
       <div class="task-content">
         <button type="button" class="task-main" data-action="edit" data-id="${escapeHtml(task.id)}" aria-label="Редактирай: ${escapeHtml(task.title)}">
@@ -312,10 +322,12 @@
             <span class="pill${dateClass}">${icon('calendar')}${escapeHtml(dateText)}</span>
             ${task.repeat !== 'none' ? `<span class="pill repeating">${icon('repeat')}${escapeHtml(REPEATS[task.repeat])}</span>` : ''}
             ${task.priority === 'high' ? '<span class="pill important">★ Важна</span>' : ''}
+            ${task.pinned && !task.done ? `<span class="pill pinned-pill">${icon('pin')} Закрепена</span>` : ''}
           </span>
         </button>
         ${checklist}
       </div>
+      ${!task.done ? `<button type="button" class="task-pin${task.pinned ? ' active' : ''}" data-action="pin" data-id="${escapeHtml(task.id)}" aria-pressed="${task.pinned}" aria-label="${task.pinned ? 'Откачи' : 'Закрепи'} задача: ${escapeHtml(task.title)}" title="${task.pinned ? 'Махни отгоре' : 'Закрепи най-отгоре'}">${icon('pin')}</button>` : ''}
       ${!task.done ? `<button type="button" class="task-move" data-action="move" data-id="${escapeHtml(task.id)}" aria-label="Премести за друга дата: ${escapeHtml(task.title)}" title="Промени датата">${icon('calendar')}</button>` : ''}
       <button type="button" class="task-remove" data-action="delete" data-id="${escapeHtml(task.id)}" aria-label="Изтрий: ${escapeHtml(task.title)}" title="Изтрий">${icon('trash')}</button>
     </article>`;
@@ -325,6 +337,7 @@
     el('listTitle').textContent = view === 'calendar'
       ? `Задачи за ${new Intl.DateTimeFormat('bg-BG', { day: 'numeric', month: 'long' }).format(new Date(`${selectedDate}T12:00:00`))}`
       : VIEWS[view][1];
+    el('sortControls').hidden = view === 'done';
     document.querySelectorAll('[data-view]').forEach((button) => {
       const active = button.dataset.view === view;
       button.classList.toggle('active', active);
@@ -375,7 +388,7 @@
     const category = el('quickCategory').value;
     const task = normalizeTask({
       id: makeId(), title, note: '', subtasks: [], date: quickDate(),
-      category, priority: 'normal', repeat: 'none', done: false,
+      category, priority: 'normal', pinned: false, repeat: 'none', done: false,
       createdAt: new Date().toISOString()
     });
     if (task && saveTasks([task, ...tasks])) {
@@ -469,6 +482,16 @@
     saveTasks(next);
   }
 
+  function togglePin(id) {
+    const task = tasks.find((item) => item.id === id);
+    if (!task || task.done || task.deletedAt) return;
+    const nextPinned = !task.pinned;
+    if (saveTasks(tasks.map((item) => item.id === id
+      ? { ...item, pinned: nextPinned, autoGenerated: false } : item))) {
+      showToast(nextPinned ? 'Задачата е закрепена най-отгоре.' : 'Задачата е откачена.');
+    }
+  }
+
   function openEditor(task = null) {
     editingId = task ? task.id : null;
     el('taskForm').reset();
@@ -522,7 +545,7 @@
       if (!tasks.some((task) => task.id === editingId)) return;
       next = tasks.map((task) => task.id === editingId ? { ...task, ...common, autoGenerated: false } : task);
     } else {
-      next = [{ id: makeId(), ...common, done: false, createdAt: new Date().toISOString(), completedAt: null,
+      next = [{ id: makeId(), ...common, pinned: false, done: false, createdAt: new Date().toISOString(), completedAt: null,
         previousId: null, autoGenerated: false }, ...tasks];
     }
     if (saveTasks(next)) {
@@ -649,7 +672,7 @@
   function closeTrash() { el('trashDialog').close(); }
   function exportBackup() {
     // Soft-deleted tasks remain in this same array, so backups preserve the trash as well.
-    const backup = { app: 'MyDay', version: 5, exportedAt: new Date().toISOString(), tasks };
+    const backup = { app: 'MyDay', version: 6, exportedAt: new Date().toISOString(), tasks };
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -667,7 +690,7 @@
     try {
       if (file.size > 3 * 1024 * 1024) throw new Error('Файлът е твърде голям (макс. 3 MB).');
       const backup = JSON.parse(await file.text());
-      if (backup.app !== 'MyDay' || ![1, 2, 3, 4, 5].includes(backup.version) || !Array.isArray(backup.tasks) || backup.tasks.length > 5000) {
+      if (backup.app !== 'MyDay' || ![1, 2, 3, 4, 5, 6].includes(backup.version) || !Array.isArray(backup.tasks) || backup.tasks.length > 5000) {
         throw new Error('Това не е съвместим MyDay backup файл.');
       }
       const imported = backup.tasks.map(normalizeTask);
@@ -699,6 +722,16 @@
     try { theme = localStorage.getItem(THEME_KEY) || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'); }
     catch { /* use light theme */ }
     applyTheme(theme === 'dark' ? 'dark' : 'light');
+    try {
+      const savedSort = localStorage.getItem(SORT_KEY);
+      if (SORT_MODES.includes(savedSort)) sortMode = savedSort;
+    } catch { /* keep default sort */ }
+    el('sortSelect').value = sortMode;
+    el('sortSelect').addEventListener('change', () => {
+      sortMode = SORT_MODES.includes(el('sortSelect').value) ? el('sortSelect').value : 'date';
+      try { localStorage.setItem(SORT_KEY, sortMode); } catch { /* keep for current session */ }
+      renderList();
+    });
 
     el('themeButton').addEventListener('click', () => applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'));
     document.querySelectorAll('[data-view]').forEach((button) => button.addEventListener('click', () => { view = button.dataset.view; render(); }));
@@ -730,6 +763,7 @@
         if (button.dataset.action === 'delete') deleteTask(task.id);
         if (button.dataset.action === 'edit') openEditor(task);
         if (button.dataset.action === 'move') openMove(task);
+        if (button.dataset.action === 'pin') togglePin(task.id);
         if (button.dataset.action === 'expand') {
           if (expandedSubtasks.has(task.id)) expandedSubtasks.delete(task.id);
           else expandedSubtasks.add(task.id);
