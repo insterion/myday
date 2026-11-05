@@ -283,6 +283,14 @@
     const completedLocallyToday = currentTasks.filter((task) => task.done && task.completedAt && localDate(new Date(task.completedAt)) === today);
     const count = todayOpen.length + completedLocallyToday.length;
     const pct = count ? Math.round(completedLocallyToday.length / count * 100) : 0;
+    const dueToday = active.filter((task) => task.date === today).length;
+    const overdue = active.filter((task) => task.date && task.date < today).length;
+    const undated = active.filter((task) => !task.date).length;
+
+    el('progressDue').textContent = `За днес: ${dueToday}`;
+    el('progressOverdue').textContent = `Просрочени: ${overdue}`;
+    el('progressOverdue').classList.toggle('attention', overdue > 0);
+    el('progressUndated').textContent = `Без дата: ${undated}`;
 
     el('countToday').textContent = todayOpen.length;
     el('countUpcoming').textContent = upcoming.length;
@@ -446,7 +454,7 @@
       ${!hasFilter && view !== 'done' ? '<button type="button" id="emptyAdd">+ Добави задача</button>' : ''}
     </div>`;
   }
-  function quickDate() {
+  function quickDefaultDate() {
     if (view === 'calendar') return selectedDate;
     if (view === 'upcoming') {
       const tomorrow = new Date();
@@ -454,6 +462,18 @@
       return localDate(tomorrow);
     }
     return localDate();
+  }
+  function quickDate() {
+    // Explicit selection overrides the current tab; "auto" follows the tab.
+    const mode = el('quickWhen').value;
+    if (mode === 'none') return '';
+    if (mode === 'today') return localDate();
+    if (mode === 'tomorrow') {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      return localDate(tomorrow);
+    }
+    return quickDefaultDate();
   }
   function renderQuickAdd() {
     const date = quickDate();
@@ -474,7 +494,7 @@
       input.value = '';
       if (view === 'done') { view = 'today'; render(); }
       input.focus();
-      showToast('Новата задача е записана на телефона.');
+      showToast(`Новата задача е записана. Дата: ${prettyDate(task.date)}.`);
     }
   }
   function render() {
@@ -986,6 +1006,7 @@
     });
     el('taskForm').addEventListener('submit', handleSubmit);
     el('quickAddForm').addEventListener('submit', submitQuickTask);
+    el('quickWhen').addEventListener('change', renderQuickAdd);
     el('bulkSubtaskAdd').addEventListener('click', addBulkSubtasks);
     el('addSubtask').addEventListener('click', addSubtaskFromField);
     el('newSubtask').addEventListener('keydown', (event) => {

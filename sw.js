@@ -1,6 +1,6 @@
-const CACHE_NAME = 'myday-1.0-static-v1';
+const CACHE_NAME = 'myday-1.1-static-v1';
 const CORE = [
-  './', './index.html', './styles.css?v=1.0', './app.js?v=1.0',
+  './', './index.html', './styles.css?v=1.1', './app.js?v=1.1',
   './manifest.json', './icon-192.png', './icon-512.png'
 ];
 

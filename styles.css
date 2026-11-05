@@ -54,6 +54,10 @@ h1 { margin: 0; font-size: clamp(36px, 6vw, 50px); letter-spacing: -2.1px; line-
 .progress-row span { color: var(--green); font-size: 13px; font-weight: 800; }
 .progress-track { height: 8px; border-radius: 10px; background: var(--surface2); overflow: hidden; }
 .progress-fill { width: 0; height: 100%; background: linear-gradient(90deg,#3168eb,#4dd2b1); border-radius: inherit; transition: width .25s ease; }
+/* 1.1: at-a-glance daily overview, with no new navigation or data fields. */
+.progress-details { display: flex; flex-wrap: wrap; gap: 5px 12px; margin-top: 12px; color: var(--muted); font-size: 11px; font-weight: 650; line-height: 1.5; }
+.progress-details .attention { color: var(--red); }
+
 .views { display: flex; overflow-x: auto; gap: 5px; padding: 5px; background: var(--surface2); border-radius: 16px; scrollbar-width: none; }
 .views::-webkit-scrollbar { display: none; }
 .view { flex: 1; white-space: nowrap; min-height: 48px; padding: 11px 13px; border: 0; border-radius: 12px; background: transparent; color: var(--muted); font-size: 14px; font-weight: 700; }
@@ -246,7 +250,15 @@ textarea.text-input { resize: vertical; }
 .quick-add-row input::placeholder { color: var(--muted); }
 .quick-add-row button { background: #3168eb; color: white; border: 0; border-radius: 10px; padding: 10px 14px; min-height: 41px; font-size: 13px; font-weight: 750; }
 .quick-add-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; border-top: 1px solid var(--border); padding: 8px 2px 0; color: var(--muted); font-size: 12px; }
-.quick-add-meta #quickDateLabel { font-weight: 700; margin-right: auto; }
+.quick-add-meta #quickDateLabel { font-weight: 700; flex-basis: 100%; white-space: nowrap; }
+.quick-choice { display: inline-flex; align-items: center; flex-wrap: nowrap; gap: 6px; min-width: 0; }
+.quick-choice select { max-width: 151px; }
+@media (max-width: 430px) {
+  .quick-add-meta { gap: 7px 9px; }
+  .quick-add-meta #quickDateLabel { margin-top: 1px; }
+  .quick-choice select { max-width: 135px; }
+}
+
 .quick-add-meta label { white-space: nowrap; }
 .quick-add-meta select { border: 1px solid var(--border); background: var(--surface2); color: var(--ink); border-radius: 8px; font-size: 12px; min-height: 32px; padding: 5px 8px; }
 .bulk-subtasks { margin: 12px 0 4px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 11px; background: var(--surface2); }
