@@ -9,9 +9,9 @@
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" type="image/png" href="./icon-192.png">
   <link rel="apple-touch-icon" href="./icon-192.png">
-  <link rel="stylesheet" href="./styles.css?v=0.8">
+  <link rel="stylesheet" href="./styles.css?v=0.9">
   <title>MyDay · Моят ден</title>
-  <script defer src="./app.js?v=0.8"></script>
+  <script defer src="./app.js?v=0.9"></script>
 </head>
 <body>
   <svg class="svg-sprite" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
@@ -39,7 +39,7 @@
       <a class="brand" href="./" aria-label="MyDay — начало">
         <span class="brand-mark"><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg></span>
         <span>myday<span class="brand-dot">.</span></span>
-        <span class="version">0.8</span>
+        <span class="version">0.9</span>
       </a>
       <div class="top-actions">
         <button class="icon-button" id="themeButton" type="button" aria-label="Смени темата" title="Светла / тъмна тема">
@@ -151,7 +151,7 @@
       </section>
     </main>
 
-    <footer>MyDay 0.8 <span aria-hidden="true">·</span> Просто, лично и безплатно <span aria-hidden="true">·</span> Данните са на твоето устройство</footer>
+    <footer>MyDay 0.9 <span aria-hidden="true">·</span> Просто, лично и безплатно <span aria-hidden="true">·</span> Данните са на твоето устройство</footer>
   </div>
 
   <button id="mobileAdd" class="mobile-add" type="button" aria-label="Добави нова задача"><svg class="icon"><use href="#i-plus"/></svg></button>
@@ -220,7 +220,8 @@
         </div>
         <p class="repeat-help" id="repeatHelp">При изпълнение на повтаряща се задача MyDay автоматично създава следващата дата. Нужна е избрана дата.</p>
       </div>
-      <div class="dialog-footer">
+      <div class="dialog-footer task-dialog-footer">
+        <p id="draftStatus" class="draft-status" role="status" aria-live="polite">Няма незапазени промени</p>
         <button class="secondary-button" id="cancelDialog" type="button">Отказ</button>
         <button class="save-button" id="saveButton" type="submit">Запази задачата</button>
       </div>

@@ -332,3 +332,9 @@ textarea.text-input { resize: vertical; }
   .undated-notice #undatedNoticeText { flex-basis: calc(100% - 36px); }
   .undated-notice button { margin-left: 34px; }
 }
+
+/* MyDay 0.9 — clear editor save status and unsaved-draft indicator */
+.task-dialog-footer { flex-wrap: wrap; align-items: center; }
+.draft-status { flex: 1 1 100%; margin: 0 0 2px; color: var(--muted); font-size: 12px; line-height: 1.4; }
+.draft-status.dirty { color: var(--red); font-weight: 750; }
+@media (max-width: 390px) { .task-dialog-footer { padding: 14px 16px 18px; } }
