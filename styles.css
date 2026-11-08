@@ -266,8 +266,9 @@ textarea.text-input { resize: vertical; }
 .bulk-subtasks p { font-size: 12px; color: var(--muted); margin: 8px 0; line-height: 1.5; }
 .bulk-subtasks textarea { background: var(--surface); margin-top: 9px; }
 .bulk-add-button { background: var(--accent-soft); color: var(--accent-text); border: 0; border-radius: 10px; margin-top: 9px; min-height: 42px; padding: 8px 13px; font-size: 12px; font-weight: 750; }
-.subtask-tools { display: flex; justify-content: flex-end; margin-bottom: 4px; }
-.subtask-tools button { background: var(--accent-soft); color: var(--accent-text); border: 0; border-radius: 8px; font-size: 11px; font-weight: 750; padding: 7px 9px; }
+.subtask-tools { display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 6px; margin-bottom: 6px; }
+.subtask-tools button { background: var(--accent-soft); color: var(--accent-text); border: 1px solid transparent; border-radius: 8px; font-size: 11px; font-weight: 750; min-height: 34px; padding: 7px 9px; touch-action: manipulation; }
+.subtask-tools button[data-action="subtasks-reset"] { color: var(--muted); }
 .subtask-all-done { font-size: 12px; color: var(--green); margin: 5px 0 3px; }
 @media (max-width: 390px) {
   .quick-add { padding: 9px; }
