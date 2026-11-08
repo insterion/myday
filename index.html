@@ -9,9 +9,9 @@
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" type="image/png" href="./icon-192.png">
   <link rel="apple-touch-icon" href="./icon-192.png">
-  <link rel="stylesheet" href="./styles.css?v=1.6">
+  <link rel="stylesheet" href="./styles.css?v=1.7">
   <title>MyDay · Моят ден</title>
-  <script defer src="./app.js?v=1.6"></script>
+  <script defer src="./app.js?v=1.7"></script>
 </head>
 <body>
   <svg class="svg-sprite" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
@@ -40,7 +40,7 @@
       <a class="brand" href="./" aria-label="MyDay — начало">
         <span class="brand-mark"><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg></span>
         <span>myday<span class="brand-dot">.</span></span>
-        <span class="version">1.6</span>
+        <span class="version">1.7</span>
       </a>
       <div class="top-actions">
         <button class="icon-button" id="themeButton" type="button" aria-label="Смени темата" title="Светла / тъмна тема">
@@ -55,6 +55,7 @@
             <button id="exportButton" type="button"><svg class="icon"><use href="#i-download"/></svg> Запази backup</button>
             <button id="importButton" type="button"><svg class="icon"><use href="#i-upload"/></svg> Зареди backup</button>
             <button id="trashButton" type="button"><svg class="icon"><use href="#i-trash"/></svg> Кошче <span id="trashCount" class="trash-count">0</span></button>
+            <button id="installMenuButton" type="button"><svg class="icon"><use href="#i-download"/></svg> Инсталиране / PWA</button>
             <p>Задачите и кошчето се пазят в този браузър. Backup включва и двете.</p>
           </div>
         </details>
@@ -92,6 +93,10 @@
         </div>
       </section>
 
+      <section class="install-nudge" id="installNudge" hidden aria-label="Инсталиране на приложението">
+        <span>Искаш MyDay като отделно приложение на телефона?</span>
+        <button id="installNudgeButton" type="button">Инсталиране / Проверка</button>
+      </section>
       <nav class="views" aria-label="Преглед на задачите">
         <button class="view active" type="button" data-view="today" aria-current="page">Днес <span id="countToday">0</span></button>
         <button class="view" type="button" data-view="upcoming">Предстоящи <span id="countUpcoming">0</span></button>
@@ -198,7 +203,7 @@
       </section>
     </main>
 
-    <footer>MyDay 1.6 <span aria-hidden="true">·</span> Просто, лично и безплатно <span aria-hidden="true">·</span> Данните са на твоето устройство <span id="offlineStatus" class="offline-status" hidden>· Офлайн режим</span></footer>
+    <footer>MyDay 1.7 <span aria-hidden="true">·</span> Просто, лично и безплатно <span aria-hidden="true">·</span> Данните са на твоето устройство <span id="offlineStatus" class="offline-status" hidden>· Офлайн режим</span></footer>
   </div>
 
   <button id="mobileAdd" class="mobile-add" type="button" aria-label="Добави нова задача"><svg class="icon"><use href="#i-plus"/></svg></button>
@@ -319,6 +324,35 @@
       <div id="trashList" class="trash-list"></div>
     </div>
     <div class="dialog-footer"><button class="secondary-button" id="closeTrashBottom" type="button">Затвори</button></div>
+  </dialog>
+  <dialog id="installDialog" class="task-dialog install-dialog" aria-labelledby="installTitle">
+    <div class="dialog-header">
+      <div><p class="eyebrow muted">ANDROID · PWA</p><h2 id="installTitle">Инсталиране на MyDay</h2></div>
+      <button class="icon-button" id="closeInstall" type="button" aria-label="Затвори"><svg class="icon"><use href="#i-close"/></svg></button>
+    </div>
+    <div class="install-body">
+      <p id="installAdvice" class="install-advice" role="status" aria-live="polite">Проверявам възможностите за инсталиране...</p>
+      <button id="installPromptButton" class="save-button install-primary" type="button" hidden>Инсталирай MyDay</button>
+      <div class="install-instructions">
+        <strong>В Chrome на Android:</strong>
+        <p>1. Отвори <b>https://insterion.github.io/myday/</b> направо в Chrome (не във вградения браузър на ChatGPT).</p>
+        <p>2. Натисни <b>⋮</b> до адреса → <b>Install and create shortcut</b> или <b>Install app</b> → <b>Install</b>.</p>
+        <p>3. Ако Chrome предлага само shortcut, той може да се отвори като обикновена страница. Използвай проверката по-долу, за да открием причината.</p>
+      </div>
+      <div class="install-checks" aria-live="polite">
+        <h3>Проверка на PWA</h3>
+        <div><span>Сигурна връзка (HTTPS)</span><strong id="installHttps">Проверява се...</strong></div>
+        <div><span>Manifest и икони</span><strong id="installManifest">Проверява се...</strong></div>
+        <div><span>Service Worker (офлайн)</span><strong id="installWorker">Проверява се...</strong></div>
+        <div><span>Диалог от браузъра</span><strong id="installOffer">Проверява се...</strong></div>
+      </div>
+      <button id="installCheckAgain" type="button" class="secondary-button">Провери отново</button>
+      <p class="install-footnote">Липсата на автоматичен диалог не означава непременно повреда. Инсталирането зависи и от Chrome, Android и настройките на телефона.</p>
+      <label for="installReport" class="field-label">Резултат за споделяне</label>
+      <textarea class="text-input install-report" id="installReport" rows="4" readonly aria-label="Резултат от PWA проверката"></textarea>
+      <button id="copyInstallReport" class="secondary-button" type="button">Копирай резултата</button>
+    </div>
+    <div class="dialog-footer"><button class="secondary-button" id="closeInstallBottom" type="button">Затвори</button></div>
   </dialog>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 </body>

@@ -1242,6 +1242,149 @@
     document.querySelector('meta[name="theme-color"]').content = theme === 'dark' ? '#101725' : '#f6f8fc';
     try { localStorage.setItem(THEME_KEY, theme); } catch { /* Browser storage blocked */ }
   }
+
+  // PWA install prompt is offered by Chrome; the site cannot force it.
+  let pendingInstallPrompt = null;
+  let installedThisSession = false;
+  let workerRegistrationError = '';
+  const installFindings = {https: '', manifest: '', worker: '', offer: ''};
+  const isStandalone = () => window.matchMedia?.('(display-mode: standalone)').matches === true || navigator.standalone === true;
+  function installStatus(id, value, kind='') {
+    const node = el(id);
+    if (!node) return;
+    node.textContent = value;
+    node.classList.toggle('ok', kind === 'ok');
+    node.classList.toggle('problem', kind === 'problem');
+  }
+  function refreshInstallBanner() {
+    if (el('installNudge')) el('installNudge').hidden = isStandalone() || installedThisSession || !/Android/i.test(navigator.userAgent);
+    if (el('installPromptButton')) el('installPromptButton').hidden = !pendingInstallPrompt || isStandalone() || installedThisSession;
+    if (el('installAdvice')) el('installAdvice').textContent = isStandalone()
+      ? 'MyDay вече е отворен като самостоятелно приложение.'
+      : installedThisSession ? 'Chrome потвърди инсталацията. Отвори MyDay от иконата на телефона.'
+      : pendingInstallPrompt
+        ? 'Chrome предлага инсталиране. Използвай бутона „Инсталирай MyDay“.'
+        : 'Ако Chrome не предлага инсталиране автоматично, използвай менюто ⋮. Провери резултатите по-долу.';
+    if (el('installOffer')) installStatus('installOffer', isStandalone() ? 'Отворено като приложение' : installedThisSession ? 'Инсталирано в тази сесия' : pendingInstallPrompt ? 'Наличен бутон за инсталация' : 'Няма автоматичен диалог', pendingInstallPrompt || isStandalone() || installedThisSession ? 'ok' : '');
+    installFindings.offer = el('installOffer')?.textContent || '';
+    renderInstallReport();
+  }
+  function renderInstallReport() {
+    const report = el('installReport');
+    if (!report) return;
+    report.value = [
+      'MyDay 1.7 · PWA проверка',
+      `Адрес: ${location.origin}${location.pathname}`,
+      `Браузър: ${navigator.userAgent}`,
+      `Онлайн: ${navigator.onLine === false ? 'не' : 'да / неустановено'}`,
+      `Самостоятелен режим: ${isStandalone() ? 'да' : 'не'}`,
+      `HTTPS: ${installFindings.https || 'непроверено'}`,
+      `Manifest: ${installFindings.manifest || 'непроверено'}`,
+      `Service Worker: ${installFindings.worker || 'непроверено'}`,
+      `Инсталация: ${installFindings.offer || 'непроверено'}`
+    ].join('\n');
+  }
+  async function checkInstall() {
+    const secure = window.isSecureContext === true && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1');
+    installFindings.https = secure ? 'OK' : 'Няма HTTPS / secure context';
+    installStatus('installHttps', installFindings.https, secure ? 'ok' : 'problem');
+    installStatus('installManifest', 'Проверявам...');
+    installStatus('installWorker', 'Проверявам...');
+    try {
+      const link = document.querySelector('link[rel="manifest"]');
+      if (!link) throw new Error('Няма link към manifest');
+      const manifestUrl = new URL(link.getAttribute('href'), document.baseURI);
+      const response = await fetch(manifestUrl.href, {cache: 'no-store'});
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+      if (!(data.name || data.short_name) || !data.start_url || !['standalone','fullscreen','minimal-ui'].includes(data.display)) throw new Error('Непълни полета');
+      const iconEntries = (Array.isArray(data.icons) ? data.icons : []);
+      for (const size of ['192x192','512x512']) {
+        const entry = iconEntries.find((item) => item.sizes?.split(/\s+/).includes(size));
+        if (!entry?.src) throw new Error(`Липсва икона ${size}`);
+        const iconUrl = new URL(entry.src, manifestUrl.href);
+        const iconResponse = await fetch(iconUrl, {cache:'no-store'});
+        if (!iconResponse.ok || !(iconResponse.headers.get('content-type') || '').includes('image/')) throw new Error(`Икона ${size} (HTTP ${iconResponse.status})`);
+      }
+      installFindings.manifest = 'OK: manifest + две икони';
+      installStatus('installManifest', installFindings.manifest, 'ok');
+    } catch (e) {
+      installFindings.manifest = navigator.onLine === false ? 'Невъзможна проверка офлайн' : `Проблем: ${String(e?.message || e).slice(0,85)}`;
+      installStatus('installManifest', installFindings.manifest, navigator.onLine === false ? '' : 'problem');
+    }
+    try {
+      if (!('serviceWorker' in navigator)) throw new Error('Браузърът няма Service Worker');
+      const reg = await navigator.serviceWorker.getRegistration(new URL('./', document.baseURI).href);
+      if (!reg) throw new Error(workerRegistrationError || 'Все още няма регистрация');
+      if (reg.active) {
+        installFindings.worker = 'OK: активен';
+        installStatus('installWorker', installFindings.worker, 'ok');
+      } else {
+        installFindings.worker = reg.installing ? 'Инсталира се — отвори пак приложението' : 'Регистриран, изчаква активиране';
+        installStatus('installWorker', installFindings.worker);
+      }
+    } catch (e) {
+      installFindings.worker = `Проблем: ${String(e?.message || e).slice(0,85)}`;
+      installStatus('installWorker', installFindings.worker, 'problem');
+    }
+    refreshInstallBanner();
+  }
+  function openInstallDialog() {
+    el('toolsMenu').open = false;
+    refreshInstallBanner();
+    el('installDialog').showModal();
+    void checkInstall();
+  }
+  function beginInstall() {
+    // Must be invoked directly within a real click to satisfy user activation.
+    const event = pendingInstallPrompt;
+    if (!event) { showToast('Отвори ⋮ в Chrome и избери Install and create shortcut.'); return; }
+    pendingInstallPrompt = null;
+    refreshInstallBanner();
+    try {
+      event.prompt();
+      Promise.resolve(event.userChoice).then((choice) => {
+        showToast(choice?.outcome === 'accepted' ? 'Инсталацията е заявена в Chrome.' : 'Инсталацията не е потвърдена.');
+        refreshInstallBanner();
+      }).catch(() => refreshInstallBanner());
+    } catch { showToast('Chrome не отвори инсталация. Опитай през менюто ⋮.'); }
+  }
+  function initInstallUi() {
+    window.addEventListener('beforeinstallprompt', (event) => {
+      event.preventDefault();
+      pendingInstallPrompt = event;
+      refreshInstallBanner();
+    });
+    window.addEventListener('appinstalled', () => {
+      pendingInstallPrompt = null;
+      installedThisSession = true;
+      refreshInstallBanner();
+      showToast('MyDay е инсталиран.');
+    });
+    window.matchMedia?.('(display-mode: standalone)')?.addEventListener?.('change', refreshInstallBanner);
+    el('installMenuButton').addEventListener('click', openInstallDialog);
+    el('installNudgeButton').addEventListener('click', openInstallDialog);
+    el('installPromptButton').addEventListener('click', beginInstall);
+    el('installCheckAgain').addEventListener('click', () => { void checkInstall(); });
+    const close = () => el('installDialog').close();
+    el('closeInstall').addEventListener('click', close);
+    el('closeInstallBottom').addEventListener('click', close);
+    el('installDialog').addEventListener('click', (event) => { if (event.target === el('installDialog')) close(); });
+    el('copyInstallReport').addEventListener('click', async () => {
+      const text = el('installReport').value;
+      try {
+        if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable');
+        await navigator.clipboard.writeText(text);
+        showToast('Резултатът е копиран. Постави го в ChatGPT.');
+      } catch {
+        el('installReport').focus();
+        el('installReport').select();
+        showToast('Текстът е маркиран. Избери „Копирай“ от менюто на Android.');
+      }
+    });
+    refreshInstallBanner();
+  }
+
   function init() {
     let theme = 'light';
     try { theme = localStorage.getItem(THEME_KEY) || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'); }
@@ -1410,12 +1553,16 @@
     el('importFile').addEventListener('change', (event) => importBackup(event.target.files?.[0]));
     document.addEventListener('click', (event) => { if (!el('toolsMenu').contains(event.target)) el('toolsMenu').open = false; });
     document.addEventListener('visibilitychange', () => { if (!document.hidden) render(); });
+    initInstallUi();
     render();
     if ('serviceWorker' in navigator && location.protocol !== 'file:') {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' }).catch(() => {
-          // Tasks still work online; the browser may prevent offline installation.
-        });
+        navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' })
+          .then(() => { if (el('installDialog').open) void checkInstall(); })
+          .catch((error) => {
+            workerRegistrationError = String(error?.message || error).slice(0,85);
+            if (el('installDialog').open) void checkInstall();
+          });
       });
     }
   }

@@ -440,3 +440,25 @@ textarea.text-input { resize: vertical; }
   .templates-dialog .dialog-header { padding: 20px 17px 10px; }
 }
 @media(max-width: 390px) { .template-shortcut > span { flex-basis: 100%; } }
+
+
+/* 1.7: gentle Android install entry and self-service diagnostics. */
+.install-nudge[hidden], #installPromptButton[hidden] { display: none !important; }
+.install-nudge { display:flex; gap:12px; align-items:center; justify-content:space-between; padding:13px 17px; border:1px solid var(--border); border-radius:13px; background:var(--surface); color:var(--muted); font-size:13px; line-height:1.5; margin:0 0 16px; }
+.install-nudge button { flex:none; border:0; background:var(--accent-soft); color:var(--accent-text); padding:10px 13px; border-radius:10px; font-size:12px; font-weight:750; }
+.install-dialog { width:min(540px,calc(100% - 24px)); }
+.install-body { padding:9px 25px 20px; overflow-y:auto; max-height:65dvh; }
+.install-advice { background:var(--accent-soft); color:var(--accent-text); padding:13px 15px; border-radius:12px; font-size:14px; line-height:1.5; margin:5px 0 12px; }
+.install-primary { width:100%; margin:0 0 10px; }
+.install-instructions { background:var(--surface2); border-radius:13px; padding:15px; font-size:13px; line-height:1.6; }
+.install-instructions p { margin:8px 0 0; overflow-wrap:anywhere; }
+.install-checks { padding:14px 0 9px; }
+.install-checks h3 { font-size:15px; margin:7px 0 11px; }
+.install-checks > div { display:flex; justify-content:space-between; align-items:center; gap:12px; border-bottom:1px solid var(--border); padding:10px 0; font-size:12px; }
+.install-checks strong { max-width:56%; text-align:right; font-weight:700; font-size:12px; overflow-wrap:anywhere; }
+.install-checks strong.ok { color:var(--green); }
+.install-checks strong.problem { color:var(--red); }
+.install-footnote { font-size:12px; line-height:1.6; color:var(--muted); }
+.install-report { line-height:1.4; font-size:12px; }
+#copyInstallReport { margin:10px 0 3px; }
+@media (max-width:450px) { .install-nudge { flex-direction:column; align-items:flex-start; } .install-nudge button { width:100%; } .install-body { padding:9px 17px 15px; } .install-dialog .dialog-header { padding:20px 17px 10px; } .install-dialog .dialog-footer { padding:13px 17px 17px; } }
