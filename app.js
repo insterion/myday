@@ -571,10 +571,15 @@
         <span class="subtask-counter">${icon('check')} ${checked} / ${total} подзадачи</span><span class="subtask-toggle-label">${expanded ? 'Скрий' : 'Покажи списъка'}</span>
       </button>
       ${expanded ? `<div class="subtask-checklist">
-        ${!isFinished(task) ? `<div class="subtask-tools" role="group" aria-label="Действия за подзадачите">
-          ${checked > 0 ? `<button type="button" data-action="pending-only" data-id="${escapeHtml(task.id)}" aria-pressed="${onlyPending}">${onlyPending ? 'Покажи всички' : 'Само оставащите'} (${total - checked})</button>` : ''}
-          ${checked < total ? `<button type="button" data-action="subtasks-complete" data-id="${escapeHtml(task.id)}" aria-label="Отметни всички подзадачи на ${escapeHtml(task.title)}">Отметни всички</button>` : ''}
-          ${checked > 0 ? `<button type="button" data-action="subtasks-reset" data-id="${escapeHtml(task.id)}" aria-label="Изчисти отметките на подзадачите на ${escapeHtml(task.title)}">Изчисти отметките</button>` : ''}
+        ${!isFinished(task) ? `<div class="subtask-action-bar">
+          ${checked > 0 ? `<button type="button" class="subtask-pending" data-action="pending-only" data-id="${escapeHtml(task.id)}" aria-pressed="${onlyPending}">${onlyPending ? 'Покажи всички' : 'Само оставащите'} (${total - checked})</button>` : ''}
+          <details class="subtask-options">
+            <summary aria-label="Още действия за подзадачите на ${escapeHtml(task.title)}">⋯ Действия за списъка</summary>
+            <div class="subtask-tools" role="group" aria-label="Действия за подзадачите">
+              ${checked < total ? `<button type="button" data-action="subtasks-complete" data-id="${escapeHtml(task.id)}" aria-label="Отметни всички подзадачи на ${escapeHtml(task.title)}">Отметни всички</button>` : ''}
+              ${checked > 0 ? `<button type="button" data-action="subtasks-reset" data-id="${escapeHtml(task.id)}" aria-label="Изчисти отметките на подзадачите на ${escapeHtml(task.title)}">Изчисти отметките</button>` : ''}
+            </div>
+          </details>
         </div>` : ''}
         ${visibleParts.length ? visibleParts.map((part) => `<button type="button" class="subtask-item${part.done ? ' checked' : ''}" data-action="subtask" data-id="${escapeHtml(task.id)}" data-sub-id="${escapeHtml(part.id)}" ${isFinished(task) ? 'disabled' : ''} aria-pressed="${part.done}" aria-label="${part.done ? 'Премахни отметката от' : 'Отметни'}: ${escapeHtml(part.text)}"><span class="subtask-box">${icon('check')}</span><span class="subtask-item-text">${escapeHtml(part.text)}</span></button>`).join('') : '<p class="subtask-all-done">Всички подзадачи са отметнати.</p>'}
       </div>` : ''}
@@ -595,8 +600,6 @@
           </span>
         </button>
         ${checklist}
-        ${!isFinished(task) && task.repeat !== 'none' ? `<div class="repeat-skip-tools"><button type="button" data-action="skip" data-id="${escapeHtml(task.id)}" aria-label="Пропусни само това повторение: ${escapeHtml(task.title)}">${icon('repeat')} Пропусни този път</button></div>` : ''}
-        <div class="task-copy-tools"><button type="button" class="task-copy" data-action="duplicate" data-id="${escapeHtml(task.id)}" aria-label="Създай копие на задача: ${escapeHtml(task.title)}" title="Нова задача със същите данни">${icon('copy')} Копирай</button><button type="button" class="task-copy task-save-template" data-action="save-template" data-id="${escapeHtml(task.id)}" aria-label="Запази като шаблон: ${escapeHtml(task.title)}" title="Добави в Моите шаблони">${icon('sparkle')} Запази шаблон</button></div>
         ${late ? `<div class="overdue-quick-actions" aria-label="Бързо пренасрочване"><span>Премести:</span>
           <button type="button" data-action="reschedule" data-offset="0" data-id="${escapeHtml(task.id)}" aria-label="Премести за днес: ${escapeHtml(task.title)}">Днес</button>
           <button type="button" data-action="reschedule" data-offset="1" data-id="${escapeHtml(task.id)}" aria-label="Премести за утре: ${escapeHtml(task.title)}">Утре</button>
@@ -604,7 +607,15 @@
       </div>
       ${!isFinished(task) ? `<button type="button" class="task-pin${task.pinned ? ' active' : ''}" data-action="pin" data-id="${escapeHtml(task.id)}" aria-pressed="${task.pinned}" aria-label="${task.pinned ? 'Откачи' : 'Закрепи'} задача: ${escapeHtml(task.title)}" title="${task.pinned ? 'Махни отгоре' : 'Закрепи най-отгоре'}">${icon('pin')}</button>` : ''}
       ${!isFinished(task) ? `<button type="button" class="task-move" data-action="move" data-id="${escapeHtml(task.id)}" aria-label="Премести за друга дата: ${escapeHtml(task.title)}" title="Промени датата">${icon('calendar')}</button>` : ''}
-      <button type="button" class="task-remove" data-action="delete" data-id="${escapeHtml(task.id)}" aria-label="Изтрий: ${escapeHtml(task.title)}" title="Изтрий">${icon('trash')}</button>
+      <details class="task-options">
+        <summary aria-label="Още действия за задача: ${escapeHtml(task.title)}" title="Още действия">${icon('more')}</summary>
+        <div class="task-options-panel" role="group" aria-label="Допълнителни действия за ${escapeHtml(task.title)}">
+          <button type="button" data-action="duplicate" data-id="${escapeHtml(task.id)}">${icon('copy')} Копирай</button>
+          <button type="button" data-action="save-template" data-id="${escapeHtml(task.id)}">${icon('sparkle')} Запази шаблон</button>
+          ${!isFinished(task) && task.repeat !== 'none' ? `<button type="button" data-action="skip" data-id="${escapeHtml(task.id)}">${icon('repeat')} Пропусни този път</button>` : ''}
+          <button type="button" class="danger-action" data-action="delete" data-id="${escapeHtml(task.id)}">${icon('trash')} Изтрий</button>
+        </div>
+      </details>
     </article>`;
   }
   // Group tasks visually without changing their order in storage.
@@ -1623,6 +1634,21 @@
       renderList();
     });
     for (const id of ['addButton', 'mobileAdd']) el(id).addEventListener('click', () => openEditor());
+    // Compact menus are native <details>: keyboard and touch friendly, no new stored state.
+    document.addEventListener('click', (event) => {
+      const opened = document.querySelectorAll('.task-options[open], .subtask-options[open]');
+      const current = event.target.closest('.task-options, .subtask-options');
+      for (const menu of opened) {
+        if (menu !== current) menu.open = false;
+      }
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape' || document.querySelector('dialog[open]')) return;
+      const opened = document.querySelectorAll('.task-options[open], .subtask-options[open]');
+      if (!opened.length) return;
+      opened.forEach((menu) => { menu.open = false; });
+      event.preventDefault();
+    });
     el('taskList').addEventListener('click', (event) => {
       const button = event.target.closest('button[data-action]');
       if (button) {
