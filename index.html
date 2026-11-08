@@ -9,9 +9,9 @@
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" type="image/png" href="./icon-192.png">
   <link rel="apple-touch-icon" href="./icon-192.png">
-  <link rel="stylesheet" href="./styles.css?v=1.9">
+  <link rel="stylesheet" href="./styles.css?v=1.10">
   <title>MyDay · Моят ден</title>
-  <script defer src="./app.js?v=1.9"></script>
+  <script defer src="./app.js?v=1.10"></script>
 </head>
 <body>
   <svg class="svg-sprite" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
@@ -40,7 +40,7 @@
       <a class="brand" href="./" aria-label="MyDay — начало">
         <span class="brand-mark"><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg></span>
         <span>myday<span class="brand-dot">.</span></span>
-        <span class="version">1.9</span>
+        <span class="version">1.10</span>
       </a>
       <div class="top-actions">
         <button class="icon-button" id="themeButton" type="button" aria-label="Смени темата" title="Светла / тъмна тема">
@@ -56,7 +56,8 @@
             <button id="importButton" type="button"><svg class="icon"><use href="#i-upload"/></svg> Зареди backup</button>
             <button id="trashButton" type="button"><svg class="icon"><use href="#i-trash"/></svg> Кошче <span id="trashCount" class="trash-count">0</span></button>
             <button id="installMenuButton" type="button"><svg class="icon"><use href="#i-download"/></svg> Инсталиране / PWA</button>
-            <p>Задачите и кошчето се пазят в този браузър. Backup включва и двете.</p>
+            <p id="backupLastStatus">Проверка на последното резервно копие...</p>
+            <p>Backup включва задачите, кошчето и шаблоните. Провери, че JSON файлът е в Downloads.</p>
           </div>
         </details>
         <input id="importFile" type="file" accept=".json,application/json" hidden>
@@ -93,6 +94,16 @@
         </div>
       </section>
 
+      <section class="backup-reminder" id="backupReminder" aria-label="Напомняне за резервно копие" hidden>
+        <div class="backup-reminder-copy">
+          <strong>Защити задачите си</strong>
+          <span id="backupReminderText">Препоръчваме да създадеш резервно копие.</span>
+        </div>
+        <div class="backup-reminder-actions">
+          <button id="backupReminderSave" type="button">Запази backup</button>
+          <button id="backupReminderLater" type="button">По-късно</button>
+        </div>
+      </section>
       <section class="install-nudge" id="installNudge" hidden aria-label="Инсталиране на приложението">
         <span>Искаш MyDay като отделно приложение на телефона?</span>
         <button id="installNudgeButton" type="button">Инсталиране / Проверка</button>
@@ -203,7 +214,7 @@
       </section>
     </main>
 
-    <footer>MyDay 1.8 <span aria-hidden="true">·</span> Просто, лично и безплатно <span aria-hidden="true">·</span> Данните са на твоето устройство <span id="offlineStatus" class="offline-status" hidden>· Офлайн режим</span></footer>
+    <footer>MyDay 1.10 <span aria-hidden="true">·</span> Просто, лично и безплатно <span aria-hidden="true">·</span> Данните са на твоето устройство <span id="offlineStatus" class="offline-status" hidden>· Офлайн режим</span></footer>
   </div>
 
   <button id="mobileAdd" class="mobile-add" type="button" aria-label="Добави нова задача"><svg class="icon"><use href="#i-plus"/></svg></button>

@@ -4,6 +4,9 @@
   const TASKS_KEY = 'myday.tasks.v1';
   const TEMPLATES_KEY = 'myday.templates.v1';
   const TEMPLATE_SORT_KEY = 'myday.templateSort.v1';
+  const LAST_BACKUP_KEY = 'myday.lastBackup.v1';
+  const BACKUP_SNOOZE_KEY = 'myday.backupSnooze.v1';
+  const BACKUP_REMIND_DAYS = 7;
   const MAX_TEMPLATES = 20;
   const THEME_KEY = 'myday.theme.v1';
   const SORT_KEY = 'myday.sort.v1';
@@ -758,7 +761,45 @@
       showToast(`Новата задача е записана. Дата: ${prettyDate(task.date)}.`);
     }
   }
+  // Keep backup reminders separate from tasks and templates. A browser download
+  // cannot be verified by JavaScript: this records when export was *requested*,
+  // not proof that a JSON file has been saved to Downloads.
+  function lastBackupTime() {
+    try {
+      const raw = localStorage.getItem(LAST_BACKUP_KEY);
+      if (!raw) return null;
+      const time = Date.parse(raw);
+      return Number.isFinite(time) && time <= Date.now() + 60000 ? time : null;
+    } catch { return null; }
+  }
+  function renderBackupReminder() {
+    const last = lastBackupTime();
+    const status = el('backupLastStatus');
+    if (last !== null) {
+      status.textContent = `Последно подготвен backup: ${new Intl.DateTimeFormat('bg-BG', {dateStyle:'medium', timeStyle:'short'}).format(new Date(last))}. Провери Downloads.`;
+    } else {
+      status.textContent = 'Няма записана дата за последен backup. Старите версии не следяха това.';
+    }
+    const reminder = el('backupReminder');
+    const now = Date.now();
+    let snoozedUntil = 0;
+    try { snoozedUntil = Number(localStorage.getItem(BACKUP_SNOOZE_KEY)) || 0; } catch { /* optional */ }
+    const overdue = last === null || now - last >= BACKUP_REMIND_DAYS * 86400000;
+    reminder.hidden = Boolean(storageProblem || templatesProblem || !(tasks.length || templates.length) || !overdue || snoozedUntil > now);
+    if (!reminder.hidden) {
+      el('backupReminderText').textContent = last === null
+        ? 'MyDay няма информация за последен backup. Създай JSON копие и провери Downloads.'
+        : 'Минаха поне 7 дни от последното подготвено копие. Добре е да създадеш ново.';
+    }
+  }
+  function snoozeBackupReminder() {
+    try { localStorage.setItem(BACKUP_SNOOZE_KEY, String(Date.now() + 3 * 86400000)); } catch { /* session only */ }
+    el('backupReminder').hidden = true;
+    showToast('Напомнянето е отложено за 3 дни.');
+  }
+
   function render() {
+    renderBackupReminder();
     renderStorageWarning();
     updateOfflineStatus();
     renderHeader();
@@ -1247,18 +1288,30 @@
       el('toolsMenu').open = false;
       return;
     }
-    const backup = { app: 'MyDay', version: 9, exportedAt: new Date().toISOString(), tasks, templates };
+    const created = new Date();
+    const backup = { app: 'MyDay', version: 9, exportedAt: created.toISOString(), tasks, templates };
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `myday-backup-${localDate()}.json`;
+    const hh = String(created.getHours()).padStart(2, '0');
+    const mm = String(created.getMinutes()).padStart(2, '0');
+    const ss = String(created.getSeconds()).padStart(2, '0');
+    a.download = `myday-backup-${localDate(created)}-${hh}${mm}${ss}.json`;
     document.body.append(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 5000);
-    el('toolsMenu').open = false;
-    showToast(`Backup: ${tasks.length} задачи, ${templates.length} шаблона. Провери Downloads.`);
+    try {
+      a.click();
+      try {
+        localStorage.setItem(LAST_BACKUP_KEY, created.toISOString());
+        localStorage.removeItem(BACKUP_SNOOZE_KEY);
+      } catch { /* The backup download can still work without a timestamp. */ }
+      renderBackupReminder();
+      showToast(`Backup подготвен: ${tasks.length} задачи, ${templates.length} шаблона. Провери Downloads.`);
+    } finally {
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+      el('toolsMenu').open = false;
+    }
   }
   async function importBackup(file) {
     if (!file) return;
@@ -1372,7 +1425,7 @@
     const report = el('installReport');
     if (!report) return;
     report.value = [
-      'MyDay 1.9 · PWA проверка',
+      'MyDay 1.10 · PWA проверка',
       `Адрес: ${location.origin}${location.pathname}`,
       `Браузър: ${navigator.userAgent}`,
       `Онлайн: ${navigator.onLine === false ? 'не' : 'да / неустановено'}`,
@@ -1643,6 +1696,7 @@
     window.addEventListener('online', updateOfflineStatus);
     window.addEventListener('offline', updateOfflineStatus);
     window.addEventListener('storage', (event) => {
+      if (event.key === LAST_BACKUP_KEY || event.key === BACKUP_SNOOZE_KEY) { renderBackupReminder(); return; }
       if (event.key === TEMPLATES_KEY) {
         templates = readTemplates();
         renderTemplates();
@@ -1665,6 +1719,8 @@
       if (button.dataset.trashAction === 'restore') restoreTask(button.dataset.id);
       if (button.dataset.trashAction === 'forever') deleteForever(button.dataset.id);
     });
+    el('backupReminderSave').addEventListener('click', exportBackup);
+    el('backupReminderLater').addEventListener('click', snoozeBackupReminder);
     el('exportButton').addEventListener('click', exportBackup);
     el('importButton').addEventListener('click', () => el('importFile').click());
     el('importFile').addEventListener('change', (event) => importBackup(event.target.files?.[0]));
