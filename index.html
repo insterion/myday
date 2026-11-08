@@ -9,9 +9,9 @@
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" type="image/png" href="./icon-192.png">
   <link rel="apple-touch-icon" href="./icon-192.png">
-  <link rel="stylesheet" href="./styles.css?v=1.8">
+  <link rel="stylesheet" href="./styles.css?v=1.9">
   <title>MyDay · Моят ден</title>
-  <script defer src="./app.js?v=1.8"></script>
+  <script defer src="./app.js?v=1.9"></script>
 </head>
 <body>
   <svg class="svg-sprite" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
@@ -40,7 +40,7 @@
       <a class="brand" href="./" aria-label="MyDay — начало">
         <span class="brand-mark"><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg></span>
         <span>myday<span class="brand-dot">.</span></span>
-        <span class="version">1.8</span>
+        <span class="version">1.9</span>
       </a>
       <div class="top-actions">
         <button class="icon-button" id="themeButton" type="button" aria-label="Смени темата" title="Светла / тъмна тема">
@@ -287,6 +287,13 @@
     </div>
     <div class="templates-body">
       <p class="templates-hint">Запази готова задача като шаблон. Използването му създава <strong>нова задача</strong> с празни отметки. Можеш да смениш датата, преди да запазиш.</p>
+      <div class="templates-sort-row">
+        <label for="templateSort">Подреди:</label>
+        <select id="templateSort" aria-label="Подреждане на шаблоните">
+          <option value="popular">Най-използвани</option>
+          <option value="recent">Последно добавени</option>
+        </select>
+      </div>
       <div id="templatesList" class="templates-list"></div>
     </div>
     <div class="dialog-footer"><button class="secondary-button" id="closeTemplatesBottom" type="button">Затвори</button></div>

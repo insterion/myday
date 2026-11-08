@@ -3,6 +3,7 @@
 
   const TASKS_KEY = 'myday.tasks.v1';
   const TEMPLATES_KEY = 'myday.templates.v1';
+  const TEMPLATE_SORT_KEY = 'myday.templateSort.v1';
   const MAX_TEMPLATES = 20;
   const THEME_KEY = 'myday.theme.v1';
   const SORT_KEY = 'myday.sort.v1';
@@ -33,6 +34,8 @@
   let templatesRaw = null;
   let templatesProblem = false;
   let templates = readTemplates();
+  let templateSort = 'popular';
+  let pendingTemplateId = null;
   let sortMode = 'date';
   let historyFilter = 'all';
   let view = 'today';
@@ -208,7 +211,9 @@
       note: safeString(raw.note, 1500),
       category: Object.hasOwn(CATEGORIES, raw.category) ? raw.category : 'other',
       priority: raw.priority === 'high' ? 'high' : 'normal',
-      subtasks: raw.subtasks.map((text) => text.trim())
+      subtasks: raw.subtasks.map((text) => text.trim()),
+      // Usage is optional: existing v1.8 templates start at zero.
+      useCount: Number.isSafeInteger(raw.useCount) && raw.useCount >= 0 ? Math.min(raw.useCount, 1000000) : 0
     };
   }
   function validateTemplates(input) {
@@ -258,7 +263,7 @@
   function templateFromTask(source) {
     return { id: makeId(), title: source.title, note: source.note,
       category: source.category, priority: source.priority,
-      subtasks: source.subtasks.map((part) => part.text) };
+      subtasks: source.subtasks.map((part) => part.text), useCount: 0 };
   }
   function saveTaskAsTemplate(source) {
     if (!source || source.deletedAt) return;
@@ -282,9 +287,12 @@
       list.innerHTML = '<div class="templates-empty">Все още нямаш шаблони. Намери задача или списък за пазаруване и натисни „Запази шаблон“ под него.</div>';
       return;
     }
-    list.innerHTML = templates.map((item) => `<div class="template-item">
+    // Popular templates rise after a *saved* task. Equal counts keep original order.
+    const visible = templates.map((item, index) => ({item, index}));
+    if (templateSort === 'popular') visible.sort((a, b) => b.item.useCount - a.item.useCount || a.index - b.index);
+    list.innerHTML = visible.map(({item}) => `<div class="template-item">
       <strong>${escapeHtml(item.title)}</strong>
-      <small>${escapeHtml(CATEGORIES[item.category])} · ${item.subtasks.length} подзадачи</small>
+      <small>${escapeHtml(CATEGORIES[item.category])} · ${item.subtasks.length} подзадачи · ${item.useCount} ${item.useCount === 1 ? 'използване' : 'използвания'}</small>
       <div class="template-item-actions">
         <button type="button" class="template-use" data-template-action="use" data-template-id="${escapeHtml(item.id)}">Използвай</button>
         <button type="button" class="template-edit" data-template-action="edit" data-template-id="${escapeHtml(item.id)}">Редактирай</button>
@@ -296,6 +304,7 @@
     if (!item) return;
     el('templatesDialog').close();
     openEditor();
+    pendingTemplateId = item.id;
     el('dialogTitle').textContent = 'Задача от шаблон';
     el('saveButton').textContent = 'Създай задача';
     el('duplicateHint').hidden = false;
@@ -876,6 +885,7 @@
     status.classList.toggle('dirty', changed);
   }
   function openEditor(task = null) {
+    pendingTemplateId = null;
     editorOutdated = false;
     editingId = task ? task.id : null;
     duplicating = false;
@@ -929,6 +939,7 @@
     el('taskDialog').close();
     editingId = null;
     duplicating = false;
+    pendingTemplateId = null;
     editorOutdated = false;
     editorInitialState = '';
   }
@@ -936,6 +947,7 @@
     el('taskDialog').close();
     editingId = null;
     duplicating = false;
+    pendingTemplateId = null;
     editorOutdated = false;
     editorInitialState = '';
   }
@@ -980,8 +992,21 @@
     if (saveTasks(next)) {
       const wasEditing = Boolean(editingId);
       const wasDuplicating = duplicating;
+      const sourceTemplateId = !wasEditing ? pendingTemplateId : null;
       closeEditorAfterSave();
-      showToast(wasEditing ? 'Промените са записани на телефона.' : wasDuplicating ? 'Копието е създадено на телефона.' : 'Новата задача е записана на телефона.');
+      // Count use ONLY after the new task was successfully saved. Cancel = no use.
+      let countSaved = true;
+      if (sourceTemplateId) {
+        const source = templates.find((item) => item.id === sourceTemplateId);
+        if (source) countSaved = saveTemplates(templates.map((item) => item.id === sourceTemplateId
+          ? {...item, useCount: Math.min(item.useCount + 1, 1000000)} : item));
+        else countSaved = false;
+      }
+      showToast(!countSaved
+        ? 'Задачата е записана, но броят използвания на шаблона не се обнови.'
+        : wasEditing ? 'Промените са записани на телефона.'
+        : wasDuplicating ? 'Копието е създадено на телефона.'
+        : 'Новата задача е записана на телефона.');
     }
   }
   function advanceRecurring(existing, skip = false) {
@@ -1222,7 +1247,7 @@
       el('toolsMenu').open = false;
       return;
     }
-    const backup = { app: 'MyDay', version: 8, exportedAt: new Date().toISOString(), tasks, templates };
+    const backup = { app: 'MyDay', version: 9, exportedAt: new Date().toISOString(), tasks, templates };
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -1240,7 +1265,7 @@
     try {
       if (file.size > 3 * 1024 * 1024) throw new Error('Файлът е твърде голям (макс. 3 MB).');
       const backup = JSON.parse(await file.text());
-      if (backup.app !== 'MyDay' || ![1, 2, 3, 4, 5, 6, 7, 8].includes(backup.version) || !Array.isArray(backup.tasks) || backup.tasks.length > 5000) {
+      if (backup.app !== 'MyDay' || ![1, 2, 3, 4, 5, 6, 7, 8, 9].includes(backup.version) || !Array.isArray(backup.tasks) || backup.tasks.length > 5000) {
         throw new Error('Това не е съвместим MyDay backup файл.');
       }
       // Every record needs its own persistent ID, including backups from 0.1.
@@ -1257,7 +1282,7 @@
         importIds.add(task.id);
       }
       // Versions 1–7 had no template collection. Their import must not alter it.
-      const importedTemplates = backup.version === 8 ? validateTemplates(backup.templates) : [];
+      const importedTemplates = backup.version >= 8 ? validateTemplates(backup.templates) : [];
       if (templatesProblem && importedTemplates.length) throw new Error('Съществуващите шаблони не могат да се прочетат. Няма да ги презапиша.');
       const templateIds = new Set(templates.map((item) => item.id));
       const freshTemplates = importedTemplates.filter((item) => !templateIds.has(item.id));
@@ -1347,7 +1372,7 @@
     const report = el('installReport');
     if (!report) return;
     report.value = [
-      'MyDay 1.8 · PWA проверка',
+      'MyDay 1.9 · PWA проверка',
       `Адрес: ${location.origin}${location.pathname}`,
       `Браузър: ${navigator.userAgent}`,
       `Онлайн: ${navigator.onLine === false ? 'не' : 'да / неустановено'}`,
@@ -1546,6 +1571,11 @@
       renderTemplates();
       el('templatesDialog').showModal();
     });
+    el('templateSort').addEventListener('change', () => {
+      templateSort = ['popular', 'recent'].includes(el('templateSort').value) ? el('templateSort').value : 'popular';
+      try { localStorage.setItem(TEMPLATE_SORT_KEY, templateSort); } catch { /* preference is optional */ }
+      renderTemplates();
+    });
     const closeTemplates = () => el('templatesDialog').close();
     el('closeTemplates').addEventListener('click', closeTemplates);
     el('closeTemplatesBottom').addEventListener('click', closeTemplates);
@@ -1641,6 +1671,8 @@
     document.addEventListener('click', (event) => { if (!el('toolsMenu').contains(event.target)) el('toolsMenu').open = false; });
     document.addEventListener('visibilitychange', () => { if (!document.hidden) render(); });
     initInstallUi();
+    try { templateSort = ['popular', 'recent'].includes(localStorage.getItem(TEMPLATE_SORT_KEY)) ? localStorage.getItem(TEMPLATE_SORT_KEY) : 'popular'; } catch { /* default */ }
+    el('templateSort').value = templateSort;
     render();
     if ('serviceWorker' in navigator && location.protocol !== 'file:') {
       window.addEventListener('load', () => {

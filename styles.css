@@ -476,3 +476,11 @@ textarea.text-input { resize: vertical; }
   .template-edit-dialog .dialog-body { padding: 10px 17px 18px; }
   .template-edit-dialog .dialog-footer { padding: 13px 17px 17px; }
 }
+
+/* MyDay 1.9 — lightweight template popularity, no changes to task cards. */
+.templates-sort-row { display:flex; align-items:center; justify-content:space-between; gap:12px;
+  margin:0 0 12px; font-size:12px; font-weight:700; color:var(--muted); }
+.templates-sort-row select { min-height:38px; max-width:200px; min-width:0; padding:7px 10px;
+  border:1px solid var(--border); border-radius:10px; background:var(--surface);
+  color:var(--text); font:inherit; font-weight:650; }
+@media (max-width:370px) { .templates-sort-row select { max-width:175px; } }
