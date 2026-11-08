@@ -9,9 +9,9 @@
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" type="image/png" href="./icon-192.png">
   <link rel="apple-touch-icon" href="./icon-192.png">
-  <link rel="stylesheet" href="./styles.css?v=1.4">
+  <link rel="stylesheet" href="./styles.css?v=1.5">
   <title>MyDay · Моят ден</title>
-  <script defer src="./app.js?v=1.4"></script>
+  <script defer src="./app.js?v=1.5"></script>
 </head>
 <body>
   <svg class="svg-sprite" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
@@ -31,6 +31,7 @@
     <symbol id="i-arrow-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
     <symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
     <symbol id="i-repeat" viewBox="0 0 24 24"><path d="M4 7h13a4 4 0 0 1 4 4v2M17 3l4 4-4 4M20 17H7a4 4 0 0 1-4-4v-2M7 21l-4-4 4-4"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></symbol>
     <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="m12 2 2.1 7.9L22 12l-7.9 2.1L12 22l-2.1-7.9L2 12l7.9-2.1L12 2Z"/></symbol>
   </svg>
 
@@ -39,7 +40,7 @@
       <a class="brand" href="./" aria-label="MyDay — начало">
         <span class="brand-mark"><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg></span>
         <span>myday<span class="brand-dot">.</span></span>
-        <span class="version">1.4</span>
+        <span class="version">1.5</span>
       </a>
       <div class="top-actions">
         <button class="icon-button" id="themeButton" type="button" aria-label="Смени темата" title="Светла / тъмна тема">
@@ -193,7 +194,7 @@
       </section>
     </main>
 
-    <footer>MyDay 1.4 <span aria-hidden="true">·</span> Просто, лично и безплатно <span aria-hidden="true">·</span> Данните са на твоето устройство <span id="offlineStatus" class="offline-status" hidden>· Офлайн режим</span></footer>
+    <footer>MyDay 1.5 <span aria-hidden="true">·</span> Просто, лично и безплатно <span aria-hidden="true">·</span> Данните са на твоето устройство <span id="offlineStatus" class="offline-status" hidden>· Офлайн режим</span></footer>
   </div>
 
   <button id="mobileAdd" class="mobile-add" type="button" aria-label="Добави нова задача"><svg class="icon"><use href="#i-plus"/></svg></button>
@@ -205,6 +206,7 @@
         <button class="icon-button" id="closeDialog" type="button" aria-label="Затвори"><svg class="icon"><use href="#i-close"/></svg></button>
       </div>
       <div class="dialog-body">
+        <p class="duplicate-hint" id="duplicateHint" hidden>Това ще бъде нова, отделна задача. Подзадачите започват без отметки. Избери дата; повторението по подразбиране е изключено.</p>
         <label class="field-label" for="taskTitle">Какво трябва да направиш? <span aria-hidden="true">*</span></label>
         <input class="text-input" id="taskTitle" name="title" type="text" maxlength="160" placeholder="Например: Поръчай кафе" autocomplete="off" required>
 

@@ -32,6 +32,7 @@
   let historyFilter = 'all';
   let view = 'today';
   let editingId = null;
+  let duplicating = false;
   let editorInitialState = '';
   let movingId = null;
   let selectedDate = localDate();
@@ -381,6 +382,7 @@
         </button>
         ${checklist}
         ${!isFinished(task) && task.repeat !== 'none' ? `<div class="repeat-skip-tools"><button type="button" data-action="skip" data-id="${escapeHtml(task.id)}" aria-label="Пропусни само това повторение: ${escapeHtml(task.title)}">${icon('repeat')} Пропусни този път</button></div>` : ''}
+        <div class="task-copy-tools"><button type="button" class="task-copy" data-action="duplicate" data-id="${escapeHtml(task.id)}" aria-label="Създай копие на задача: ${escapeHtml(task.title)}" title="Нова задача със същите данни">${icon('copy')} Копирай</button></div>
         ${late ? `<div class="overdue-quick-actions" aria-label="Бързо пренасрочване"><span>Премести:</span>
           <button type="button" data-action="reschedule" data-offset="0" data-id="${escapeHtml(task.id)}" aria-label="Премести за днес: ${escapeHtml(task.title)}">Днес</button>
           <button type="button" data-action="reschedule" data-offset="1" data-id="${escapeHtml(task.id)}" aria-label="Премести за утре: ${escapeHtml(task.title)}">Утре</button>
@@ -677,6 +679,8 @@
   function openEditor(task = null) {
     editorOutdated = false;
     editingId = task ? task.id : null;
+    duplicating = false;
+    el('duplicateHint').hidden = true;
     el('taskForm').reset();
     el('dialogTitle').textContent = task ? 'Редактирай задача' : 'Нова задача';
     el('saveButton').textContent = task ? 'Запази промените' : 'Добави задачата';
@@ -698,16 +702,41 @@
     updateDraftStatus();
     requestAnimationFrame(() => el('taskTitle').focus());
   }
+  function duplicateTask(source) {
+    if (!source || source.deletedAt) return;
+    // Start a fresh draft, never edit or overwrite the original task.
+    openEditor();
+    duplicating = true;
+    el('dialogTitle').textContent = 'Копие на задача';
+    el('saveButton').textContent = 'Създай копие';
+    el('duplicateHint').hidden = false;
+    el('taskTitle').value = source.title;
+    el('taskNote').value = source.note;
+    // All subtasks receive new IDs and cleared checkboxes, even from History.
+    renderSubtaskEditor(source.subtasks.map((part) => ({
+      id: makeId(), text: part.text, done: false
+    })));
+    // New copies begin today (or on the selected calendar date).
+    el('taskDate').value = view === 'calendar' ? selectedDate : localDate();
+    el('taskCategory').value = source.category;
+    el('taskPriority').value = source.priority;
+    // Do not silently create a second recurring series.
+    el('taskRepeat').value = 'none';
+    editorInitialState = captureEditorState();
+    updateDraftStatus();
+  }
   function closeEditor() {
     if (hasUnsavedEditorChanges() && !confirm('Има незапазени промени. Да затворя ли без да ги запазя?')) return;
     el('taskDialog').close();
     editingId = null;
+    duplicating = false;
     editorOutdated = false;
     editorInitialState = '';
   }
   function closeEditorAfterSave() {
     el('taskDialog').close();
     editingId = null;
+    duplicating = false;
     editorOutdated = false;
     editorInitialState = '';
   }
@@ -751,8 +780,9 @@
     }
     if (saveTasks(next)) {
       const wasEditing = Boolean(editingId);
+      const wasDuplicating = duplicating;
       closeEditorAfterSave();
-      showToast(wasEditing ? 'Промените са записани на телефона.' : 'Новата задача е записана на телефона.');
+      showToast(wasEditing ? 'Промените са записани на телефона.' : wasDuplicating ? 'Копието е създадено на телефона.' : 'Новата задача е записана на телефона.');
     }
   }
   function advanceRecurring(existing, skip = false) {
@@ -1132,6 +1162,7 @@
         if (button.dataset.action === 'skip') skipOccurrence(task.id);
         if (button.dataset.action === 'delete') deleteTask(task.id);
         if (button.dataset.action === 'edit') openEditor(task);
+        if (button.dataset.action === 'duplicate') duplicateTask(task);
         if (button.dataset.action === 'move') openMove(task);
         if (button.dataset.action === 'reschedule') rescheduleOverdue([task.id], Number(button.dataset.offset));
         if (button.dataset.action === 'pin') togglePin(task.id);

@@ -407,3 +407,11 @@ textarea.text-input { resize: vertical; }
   .history-filters { gap: 5px; }
   .history-filters button { padding: 8px 9px; font-size: 12px; }
 }
+
+/* MyDay 1.5: reuse a task as a fresh checklist without adding crowded toolbar icons. */
+.task-copy-tools { margin-top: 6px; }
+.task-copy { display: inline-flex; align-items: center; gap: 5px; min-height: 32px; padding: 5px 8px; border: 1px solid transparent; border-radius: 9px; background: transparent; color: var(--muted); font-size: 12px; font-weight: 700; text-align: left; }
+.task-copy .icon { width: 14px; height: 14px; }
+.task-copy:hover, .task-copy:focus-visible { background: var(--surface2); color: var(--accent-text); border-color: var(--border); }
+.duplicate-hint { margin: 0 0 10px; border: 1px solid var(--border); background: var(--surface2); color: var(--muted); border-radius: 11px; padding: 11px 12px; font-size: 12px; line-height: 1.55; }
+.duplicate-hint[hidden] { display: none; }
