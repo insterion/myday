@@ -9,9 +9,9 @@
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" type="image/png" href="./icon-192.png">
   <link rel="apple-touch-icon" href="./icon-192.png">
-  <link rel="stylesheet" href="./styles.css?v=1.5">
+  <link rel="stylesheet" href="./styles.css?v=1.6">
   <title>MyDay · Моят ден</title>
-  <script defer src="./app.js?v=1.5"></script>
+  <script defer src="./app.js?v=1.6"></script>
 </head>
 <body>
   <svg class="svg-sprite" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
@@ -40,7 +40,7 @@
       <a class="brand" href="./" aria-label="MyDay — начало">
         <span class="brand-mark"><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg></span>
         <span>myday<span class="brand-dot">.</span></span>
-        <span class="version">1.5</span>
+        <span class="version">1.6</span>
       </a>
       <div class="top-actions">
         <button class="icon-button" id="themeButton" type="button" aria-label="Смени темата" title="Светла / тъмна тема">
@@ -147,6 +147,10 @@
             <span id="quickDateLabel" aria-live="polite">Дата: Днес</span>
           </div>
         </form>
+        <div class="template-shortcut">
+          <button id="templatesButton" class="templates-open" type="button" aria-haspopup="dialog" aria-controls="templatesDialog"><svg class="icon" aria-hidden="true"><use href="#i-sparkle"/></svg> Моите шаблони <span id="templatesCount">0</span></button>
+          <span>За списъци, които използваш често</span>
+        </div>
         <div class="filters">          <label class="search-field">
             <svg class="icon" aria-hidden="true"><use href="#i-search"/></svg>
             <input id="searchInput" type="search" placeholder="Търси задача..." autocomplete="off" aria-label="Търси задачи">
@@ -194,7 +198,7 @@
       </section>
     </main>
 
-    <footer>MyDay 1.5 <span aria-hidden="true">·</span> Просто, лично и безплатно <span aria-hidden="true">·</span> Данните са на твоето устройство <span id="offlineStatus" class="offline-status" hidden>· Офлайн режим</span></footer>
+    <footer>MyDay 1.6 <span aria-hidden="true">·</span> Просто, лично и безплатно <span aria-hidden="true">·</span> Данните са на твоето устройство <span id="offlineStatus" class="offline-status" hidden>· Офлайн режим</span></footer>
   </div>
 
   <button id="mobileAdd" class="mobile-add" type="button" aria-label="Добави нова задача"><svg class="icon"><use href="#i-plus"/></svg></button>
@@ -270,6 +274,17 @@
         <button class="save-button" id="saveButton" type="submit">Запази задачата</button>
       </div>
     </form>
+  </dialog>
+  <dialog id="templatesDialog" class="task-dialog templates-dialog" aria-labelledby="templatesTitle">
+    <div class="dialog-header">
+      <div><p class="eyebrow muted">БЪРЗИ СПИСЪЦИ</p><h2 id="templatesTitle">Моите шаблони</h2></div>
+      <button class="icon-button" id="closeTemplates" type="button" aria-label="Затвори шаблоните"><svg class="icon"><use href="#i-close"/></svg></button>
+    </div>
+    <div class="templates-body">
+      <p class="templates-hint">Запази готова задача като шаблон. Използването му създава <strong>нова задача</strong> с празни отметки. Можеш да смениш датата, преди да запазиш.</p>
+      <div id="templatesList" class="templates-list"></div>
+    </div>
+    <div class="dialog-footer"><button class="secondary-button" id="closeTemplatesBottom" type="button">Затвори</button></div>
   </dialog>
   <dialog id="moveDialog" class="task-dialog move-dialog" aria-labelledby="moveTitle">
     <form id="moveForm">

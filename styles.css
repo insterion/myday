@@ -415,3 +415,28 @@ textarea.text-input { resize: vertical; }
 .task-copy:hover, .task-copy:focus-visible { background: var(--surface2); color: var(--accent-text); border-color: var(--border); }
 .duplicate-hint { margin: 0 0 10px; border: 1px solid var(--border); background: var(--surface2); color: var(--muted); border-radius: 11px; padding: 11px 12px; font-size: 12px; line-height: 1.55; }
 .duplicate-hint[hidden] { display: none; }
+
+/* MyDay 1.6 — small reusable task templates */
+.template-shortcut { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: -3px 0 17px; }
+.template-shortcut > span { color: var(--muted); font-size: 11px; }
+.templates-open { border: 1px solid var(--border); border-radius: 10px; background: var(--surface); padding: 8px 11px; color: var(--accent-text); display: inline-flex; align-items: center; gap: 7px; min-height: 39px; font-weight: 750; font-size: 12px; }
+.templates-open .icon { width: 16px; height: 16px; }
+.templates-open span { min-width: 23px; padding: 3px 6px; border-radius: 7px; background: var(--accent-soft); font-size: 11px; text-align: center; }
+.task-copy-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 10px; }
+.task-copy-tools .task-save-template { color: var(--accent-text); }
+.templates-body { padding: 9px 24px 19px; max-height: min(60dvh, 490px); overflow-y: auto; }
+.templates-hint { color: var(--muted); font-size: 12px; line-height: 1.55; margin: 0 0 15px; }
+.templates-list { display: grid; gap: 10px; }
+.template-item { border: 1px solid var(--border); border-radius: 13px; background: var(--bg); padding: 13px; }
+.template-item strong { display: block; overflow-wrap: anywhere; font-size: 14px; }
+.template-item small { display: block; margin-top: 6px; color: var(--muted); font-size: 11px; line-height: 1.4; }
+.template-item-actions { display: flex; gap: 9px; margin-top: 12px; }
+.template-item-actions button { padding: 8px 13px; min-height: 39px; font-size: 12px; font-weight: 750; border-radius: 9px; }
+.template-use { background: #3168eb; color: #fff; border: none; }
+.template-remove { background: var(--surface); color: var(--red); border: 1px solid var(--border); }
+.templates-empty { padding: 17px 11px; border: 1px dashed var(--border); border-radius: 12px; color: var(--muted); font-size: 13px; line-height: 1.6; }
+@media(max-width: 670px) {
+  .templates-body { padding: 9px 17px 18px; }
+  .templates-dialog .dialog-header { padding: 20px 17px 10px; }
+}
+@media(max-width: 390px) { .template-shortcut > span { flex-basis: 100%; } }

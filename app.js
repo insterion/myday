@@ -2,6 +2,8 @@
   'use strict';
 
   const TASKS_KEY = 'myday.tasks.v1';
+  const TEMPLATES_KEY = 'myday.templates.v1';
+  const MAX_TEMPLATES = 20;
   const THEME_KEY = 'myday.theme.v1';
   const SORT_KEY = 'myday.sort.v1';
   const HISTORY_FILTER_KEY = 'myday.historyFilter.v1';
@@ -28,6 +30,9 @@
   let lastSavedRaw = null;
   let editorOutdated = false;
   let tasks = readTasks();
+  let templatesRaw = null;
+  let templatesProblem = false;
+  let templates = readTemplates();
   let sortMode = 'date';
   let historyFilter = 'all';
   let view = 'today';
@@ -187,6 +192,125 @@
       return false;
     }
   }
+  // Templates are intentionally separate from tasks. They never appear as unfinished work.
+  // A damaged template record is kept untouched instead of being silently replaced by [].
+  function normalizeTemplate(raw) {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+    if (typeof raw.id !== 'string' || !raw.id.trim() ||
+        typeof raw.title !== 'string' || !raw.title.trim() || raw.title.length > 160 ||
+        !Array.isArray(raw.subtasks) || raw.subtasks.length > MAX_SUBTASKS ||
+        raw.subtasks.some((text) => typeof text !== 'string' || !text.trim() || text.length > 100)) return null;
+    return {
+      id: raw.id.slice(0, 100), title: raw.title.trim(),
+      note: safeString(raw.note, 1500),
+      category: Object.hasOwn(CATEGORIES, raw.category) ? raw.category : 'other',
+      priority: raw.priority === 'high' ? 'high' : 'normal',
+      subtasks: raw.subtasks.map((text) => text.trim())
+    };
+  }
+  function validateTemplates(input) {
+    if (!Array.isArray(input) || input.length > MAX_TEMPLATES) throw new Error('Невалиден списък с шаблони.');
+    const normalized = input.map(normalizeTemplate);
+    if (normalized.some((item) => !item)) throw new Error('Невалиден шаблон.');
+    if (new Set(normalized.map((item) => item.id)).size !== normalized.length) throw new Error('Повтарящ се шаблон.');
+    return normalized;
+  }
+  function readTemplates() {
+    try {
+      const raw = localStorage.getItem(TEMPLATES_KEY);
+      templatesRaw = raw;
+      const parsed = raw === null ? [] : JSON.parse(raw);
+      const result = validateTemplates(parsed);
+      templatesProblem = false;
+      return result;
+    } catch {
+      templatesProblem = true;
+      return [];
+    }
+  }
+  function saveTemplates(next) {
+    if (templatesProblem) {
+      showToast('Шаблоните не могат да се прочетат. Данните им са запазени; не ги презаписвам.');
+      return false;
+    }
+    try {
+      if (localStorage.getItem(TEMPLATES_KEY) !== templatesRaw) {
+        templates = readTemplates();
+        renderTemplates();
+        showToast('Шаблоните са променени в друг прозорец. Опитай отново.');
+        return false;
+      }
+      const valid = validateTemplates(next);
+      const serialized = JSON.stringify(valid);
+      localStorage.setItem(TEMPLATES_KEY, serialized);
+      templatesRaw = serialized;
+      templates = valid;
+      renderTemplates();
+      return true;
+    } catch {
+      showToast('Не успях да запазя шаблоните. Провери свободното място.');
+      return false;
+    }
+  }
+  function templateFromTask(source) {
+    return { id: makeId(), title: source.title, note: source.note,
+      category: source.category, priority: source.priority,
+      subtasks: source.subtasks.map((part) => part.text) };
+  }
+  function saveTaskAsTemplate(source) {
+    if (!source || source.deletedAt) return;
+    if (templatesProblem) { showToast('Проблем при прочитане на шаблоните. Нищо не е изтрито.'); return; }
+    if (templates.length >= MAX_TEMPLATES) { showToast(`Можеш да имаш до ${MAX_TEMPLATES} шаблона.`); return; }
+    const candidate = templateFromTask(source);
+    if (templates.some((item) => item.title === candidate.title && item.note === candidate.note &&
+        item.category === candidate.category && JSON.stringify(item.subtasks) === JSON.stringify(candidate.subtasks))) {
+      showToast('Вече имаш шаблон с този списък.'); return;
+    }
+    if (saveTemplates([candidate, ...templates])) showToast('Шаблонът е запазен. Отвори „Моите шаблони“, за да го използваш.');
+  }
+  function renderTemplates() {
+    el('templatesCount').textContent = templates.length;
+    const list = el('templatesList');
+    if (templatesProblem) {
+      list.innerHTML = '<div class="templates-empty">Записът на шаблоните не може да бъде прочетен. Няма да го презапиша. Запази данните от браузъра и потърси помощ преди промяна.</div>';
+      return;
+    }
+    if (!templates.length) {
+      list.innerHTML = '<div class="templates-empty">Все още нямаш шаблони. Намери задача или списък за пазаруване и натисни „Запази шаблон“ под него.</div>';
+      return;
+    }
+    list.innerHTML = templates.map((item) => `<div class="template-item">
+      <strong>${escapeHtml(item.title)}</strong>
+      <small>${escapeHtml(CATEGORIES[item.category])} · ${item.subtasks.length} подзадачи</small>
+      <div class="template-item-actions">
+        <button type="button" class="template-use" data-template-action="use" data-template-id="${escapeHtml(item.id)}">Използвай</button>
+        <button type="button" class="template-remove" data-template-action="remove" data-template-id="${escapeHtml(item.id)}">Изтрий</button>
+      </div></div>`).join('');
+  }
+  function useTemplate(id) {
+    const item = templates.find((t) => t.id === id);
+    if (!item) return;
+    el('templatesDialog').close();
+    openEditor();
+    el('dialogTitle').textContent = 'Задача от шаблон';
+    el('saveButton').textContent = 'Създай задача';
+    el('duplicateHint').hidden = false;
+    el('taskTitle').value = item.title;
+    el('taskNote').value = item.note;
+    el('taskCategory').value = item.category;
+    el('taskPriority').value = item.priority;
+    el('taskRepeat').value = 'none';
+    // New IDs and unchecked subtasks; no link to the original task or template.
+    renderSubtaskEditor(item.subtasks.map((text) => ({ id: makeId(), text, done: false })));
+    editorInitialState = captureEditorState();
+    updateDraftStatus();
+  }
+  function removeTemplate(id) {
+    const item = templates.find((t) => t.id === id);
+    if (!item || !confirm(`Изтрий шаблона „${item.title}“? Самите задачи няма да се изтрият.`)) return;
+    if (saveTemplates(templates.filter((t) => t.id !== id))) showToast('Шаблонът е изтрит. Задачите остават.');
+  }
+
   function makeId() {
     return typeof crypto !== 'undefined' && crypto.randomUUID
       ? crypto.randomUUID()
@@ -382,7 +506,7 @@
         </button>
         ${checklist}
         ${!isFinished(task) && task.repeat !== 'none' ? `<div class="repeat-skip-tools"><button type="button" data-action="skip" data-id="${escapeHtml(task.id)}" aria-label="Пропусни само това повторение: ${escapeHtml(task.title)}">${icon('repeat')} Пропусни този път</button></div>` : ''}
-        <div class="task-copy-tools"><button type="button" class="task-copy" data-action="duplicate" data-id="${escapeHtml(task.id)}" aria-label="Създай копие на задача: ${escapeHtml(task.title)}" title="Нова задача със същите данни">${icon('copy')} Копирай</button></div>
+        <div class="task-copy-tools"><button type="button" class="task-copy" data-action="duplicate" data-id="${escapeHtml(task.id)}" aria-label="Създай копие на задача: ${escapeHtml(task.title)}" title="Нова задача със същите данни">${icon('copy')} Копирай</button><button type="button" class="task-copy task-save-template" data-action="save-template" data-id="${escapeHtml(task.id)}" aria-label="Запази като шаблон: ${escapeHtml(task.title)}" title="Добави в Моите шаблони">${icon('sparkle')} Запази шаблон</button></div>
         ${late ? `<div class="overdue-quick-actions" aria-label="Бързо пренасрочване"><span>Премести:</span>
           <button type="button" data-action="reschedule" data-offset="0" data-id="${escapeHtml(task.id)}" aria-label="Премести за днес: ${escapeHtml(task.title)}">Днес</button>
           <button type="button" data-action="reschedule" data-offset="1" data-id="${escapeHtml(task.id)}" aria-label="Премести за утре: ${escapeHtml(task.title)}">Утре</button>
@@ -557,6 +681,7 @@
     renderHeader();
     renderCalendar();
     renderQuickAdd();
+    renderTemplates();
     renderList();
     if (el('trashDialog').open) renderTrash();
   }
@@ -1018,7 +1143,12 @@
       return;
     }
     // Soft-deleted tasks remain in this same array, so backups preserve the trash as well.
-    const backup = { app: 'MyDay', version: 7, exportedAt: new Date().toISOString(), tasks };
+    if (templatesProblem) {
+      showToast('Не мога да запазя пълен backup: шаблоните не могат да се прочетат.');
+      el('toolsMenu').open = false;
+      return;
+    }
+    const backup = { app: 'MyDay', version: 8, exportedAt: new Date().toISOString(), tasks, templates };
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -1029,14 +1159,14 @@
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 5000);
     el('toolsMenu').open = false;
-    showToast(`Backup с ${tasks.length} задачи (включително ${tasks.filter((task) => task.deletedAt).length} в кошчето) е подготвен. Провери Downloads.`);
+    showToast(`Backup: ${tasks.length} задачи, ${templates.length} шаблона. Провери Downloads.`);
   }
   async function importBackup(file) {
     if (!file) return;
     try {
       if (file.size > 3 * 1024 * 1024) throw new Error('Файлът е твърде голям (макс. 3 MB).');
       const backup = JSON.parse(await file.text());
-      if (backup.app !== 'MyDay' || ![1, 2, 3, 4, 5, 6, 7].includes(backup.version) || !Array.isArray(backup.tasks) || backup.tasks.length > 5000) {
+      if (backup.app !== 'MyDay' || ![1, 2, 3, 4, 5, 6, 7, 8].includes(backup.version) || !Array.isArray(backup.tasks) || backup.tasks.length > 5000) {
         throw new Error('Това не е съвместим MyDay backup файл.');
       }
       // Every record needs its own persistent ID, including backups from 0.1.
@@ -1052,6 +1182,12 @@
         if (importIds.has(task.id)) throw new Error('Backup файлът съдържа повтарящи се идентификатори. Нищо не е променено.');
         importIds.add(task.id);
       }
+      // Versions 1–7 had no template collection. Their import must not alter it.
+      const importedTemplates = backup.version === 8 ? validateTemplates(backup.templates) : [];
+      if (templatesProblem && importedTemplates.length) throw new Error('Съществуващите шаблони не могат да се прочетат. Няма да ги презапиша.');
+      const templateIds = new Set(templates.map((item) => item.id));
+      const freshTemplates = importedTemplates.filter((item) => !templateIds.has(item.id));
+      if (templates.length + freshTemplates.length > MAX_TEMPLATES) throw new Error(`Можеш да имаш до ${MAX_TEMPLATES} шаблона. Не е направен импорт.`);
       // A damaged local record must be consciously replaced, never merged with []
       // or overwritten by adding a new task. Backups are validated first.
       if (storageProblem === 'damaged') {
@@ -1065,7 +1201,11 @@
           storageProblem = null;
           damagedRaw = null;
           render();
-          showToast(`Възстановени ${imported.length} задачи от backup. Проверявай списъка.`);
+          if (freshTemplates.length && !saveTemplates([...freshTemplates, ...templates])) {
+            showToast('Задачите са възстановени, но шаблоните не бяха добавени. Опитай отново след проверка.');
+          } else {
+            showToast(`Възстановени ${imported.length} задачи и ${freshTemplates.length} шаблона.`);
+          }
         } catch { showToast('Възстановяването не успя. Оригиналните данни са запазени.'); }
         return;
       }
@@ -1073,16 +1213,21 @@
       const known = new Set(tasks.map((task) => task.id));
       const fresh = imported.filter((task) => !known.has(task.id));
       const alreadyHere = imported.length - fresh.length;
-      if (!fresh.length) {
-        showToast(`Няма нови задачи. ${alreadyHere} вече съществуват; не са презаписани.`);
+      if (!fresh.length && !freshTemplates.length) {
+        showToast(`Няма нови записи. ${alreadyHere} задачи вече съществуват.`);
         return;
       }
       const validExportDate = typeof backup.exportedAt === 'string' && !Number.isNaN(Date.parse(backup.exportedAt));
       const exported = validExportDate ? new Intl.DateTimeFormat('bg-BG', { dateStyle: 'medium' }).format(new Date(backup.exportedAt)) : 'неизвестна дата';
       const trashed = fresh.filter((task) => task.deletedAt).length;
-      const details = `Проверен MyDay backup\nДата: ${exported}\nОбщо във файла: ${imported.length}\nНови за добавяне: ${fresh.length} (в кошчето: ${trashed})\nВече съществуват: ${alreadyHere}\n\nЩе добавя САМО новите. Съществуващите задачи няма да се заменят.\n\nДа продължа?`;
+      const details = `Проверен MyDay backup\nДата: ${exported}\nНови задачи: ${fresh.length} (в кошчето: ${trashed})\nСъществуващи задачи: ${alreadyHere}\nНови шаблони: ${freshTemplates.length}\n\nЩе добавя САМО новите записи. Съществуващите няма да бъдат заменени.\n\nДа продължа?`;
       if (!confirm(details)) return;
-      if (saveTasks([...fresh, ...tasks])) showToast(`Възстановени ${fresh.length} нови задачи. ${alreadyHere} съществуващи са запазени.`);
+      if (fresh.length && !saveTasks([...fresh, ...tasks])) return;
+      if (freshTemplates.length && !saveTemplates([...freshTemplates, ...templates])) {
+        showToast('Импортът на шаблоните не успя. Новите задачи, ако има такива, са запазени.');
+        return;
+      }
+      showToast(`Добавени ${fresh.length} задачи и ${freshTemplates.length} шаблона. Старите записи са запазени.`);
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'Грешка при зареждане на файла.');
     } finally {
@@ -1163,6 +1308,7 @@
         if (button.dataset.action === 'delete') deleteTask(task.id);
         if (button.dataset.action === 'edit') openEditor(task);
         if (button.dataset.action === 'duplicate') duplicateTask(task);
+        if (button.dataset.action === 'save-template') saveTaskAsTemplate(task);
         if (button.dataset.action === 'move') openMove(task);
         if (button.dataset.action === 'reschedule') rescheduleOverdue([task.id], Number(button.dataset.offset));
         if (button.dataset.action === 'pin') togglePin(task.id);
@@ -1178,6 +1324,20 @@
           renderList();
         }
       } else if (event.target.closest('#emptyAdd')) openEditor();
+    });
+    el('templatesButton').addEventListener('click', () => {
+      renderTemplates();
+      el('templatesDialog').showModal();
+    });
+    const closeTemplates = () => el('templatesDialog').close();
+    el('closeTemplates').addEventListener('click', closeTemplates);
+    el('closeTemplatesBottom').addEventListener('click', closeTemplates);
+    el('templatesDialog').addEventListener('click', (event) => {
+      if (event.target === el('templatesDialog')) closeTemplates();
+      const button = event.target.closest('[data-template-action]');
+      if (!button) return;
+      if (button.dataset.templateAction === 'use') useTemplate(button.dataset.templateId);
+      if (button.dataset.templateAction === 'remove') removeTemplate(button.dataset.templateId);
     });
     el('taskForm').addEventListener('submit', handleSubmit);
     el('quickAddForm').addEventListener('submit', submitQuickTask);
@@ -1223,6 +1383,12 @@
     window.addEventListener('online', updateOfflineStatus);
     window.addEventListener('offline', updateOfflineStatus);
     window.addEventListener('storage', (event) => {
+      if (event.key === TEMPLATES_KEY) {
+        templates = readTemplates();
+        renderTemplates();
+        showToast('Шаблоните са обновени от друг прозорец.');
+        return;
+      }
       if (event.key !== TASKS_KEY) return;
       if (el('taskDialog').open) editorOutdated = true;
       tasks = readTasks();
