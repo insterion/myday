@@ -38,6 +38,9 @@
   let view = 'today';
   let editingId = null;
   let duplicating = false;
+  let editingTemplateId = null;
+  let templateEditorOriginalRecord = '';
+  let templateEditorInitialState = '';
   let editorInitialState = '';
   let movingId = null;
   let selectedDate = localDate();
@@ -284,6 +287,7 @@
       <small>${escapeHtml(CATEGORIES[item.category])} · ${item.subtasks.length} подзадачи</small>
       <div class="template-item-actions">
         <button type="button" class="template-use" data-template-action="use" data-template-id="${escapeHtml(item.id)}">Използвай</button>
+        <button type="button" class="template-edit" data-template-action="edit" data-template-id="${escapeHtml(item.id)}">Редактирай</button>
         <button type="button" class="template-remove" data-template-action="remove" data-template-id="${escapeHtml(item.id)}">Изтрий</button>
       </div></div>`).join('');
   }
@@ -305,6 +309,76 @@
     editorInitialState = captureEditorState();
     updateDraftStatus();
   }
+  function templateEditFormState() {
+    return JSON.stringify({
+      title: el('templateEditName').value,
+      note: el('templateEditNote').value,
+      category: el('templateEditCategory').value,
+      priority: el('templateEditPriority').value,
+      subtasks: el('templateEditItems').value.replace(/\r\n/g, '\n')
+    });
+  }
+  function updateTemplateDraftStatus() {
+    const dirty = editingTemplateId !== null && templateEditFormState() !== templateEditorInitialState;
+    const status = el('templateEditDraftStatus');
+    status.textContent = dirty ? 'Има незапазени промени' : 'Няма незапазени промени';
+    status.classList.toggle('dirty', dirty);
+  }
+  function openTemplateEditor(id) {
+    const item = templates.find((t) => t.id === id);
+    if (!item || templatesProblem) return;
+    editingTemplateId = id;
+    templateEditorOriginalRecord = JSON.stringify(item);
+    el('templateEditName').value = item.title;
+    el('templateEditNote').value = item.note;
+    el('templateEditCategory').value = item.category;
+    el('templateEditPriority').value = item.priority;
+    el('templateEditItems').value = item.subtasks.join('\n');
+    templateEditorInitialState = templateEditFormState();
+    updateTemplateDraftStatus();
+    el('templatesDialog').close();
+    el('templateEditDialog').showModal();
+    el('templateEditName').focus();
+  }
+  function finishTemplateEditor() {
+    el('templateEditDialog').close();
+    editingTemplateId = null;
+    renderTemplates();
+    el('templatesDialog').showModal();
+  }
+  function closeTemplateEditor() {
+    if (editingTemplateId !== null && templateEditFormState() !== templateEditorInitialState &&
+        !confirm('Имаш незапазени промени в шаблона. Да ги изхвърля ли?')) return;
+    finishTemplateEditor();
+  }
+  function saveEditedTemplate(event) {
+    event.preventDefault();
+    if (!editingTemplateId || templatesProblem) return;
+    const original = templates.find((t) => t.id === editingTemplateId);
+    if (!original || JSON.stringify(original) !== templateEditorOriginalRecord) {
+      showToast('Шаблонът е променен в друг прозорец. Затвори редактора и го отвори отново.');
+      return;
+    }
+    const title = el('templateEditName').value.trim();
+    const note = el('templateEditNote').value;
+    const rows = el('templateEditItems').value.split(/\r?\n/).map((v) => v.trim()).filter(Boolean);
+    if (!title || title.length > 160) { showToast('Въведи име до 160 символа.'); return; }
+    if (rows.length > MAX_SUBTASKS || rows.some((v) => v.length > 100)) {
+      showToast('Може да имаш до 30 подзадачи, до 100 символа на ред.');
+      return;
+    }
+    const edited = {
+      ...original, title, note,
+      category: el('templateEditCategory').value,
+      priority: el('templateEditPriority').value,
+      subtasks: rows
+    };
+    // Keep the original ID so backups and existing templates remain compatible.
+    if (!saveTemplates(templates.map((item) => item.id === original.id ? edited : item))) return;
+    finishTemplateEditor();
+    showToast('Шаблонът е обновен. Съществуващите задачи не са променени.');
+  }
+
   function removeTemplate(id) {
     const item = templates.find((t) => t.id === id);
     if (!item || !confirm(`Изтрий шаблона „${item.title}“? Самите задачи няма да се изтрият.`)) return;
@@ -1273,7 +1347,7 @@
     const report = el('installReport');
     if (!report) return;
     report.value = [
-      'MyDay 1.7 · PWA проверка',
+      'MyDay 1.8 · PWA проверка',
       `Адрес: ${location.origin}${location.pathname}`,
       `Браузър: ${navigator.userAgent}`,
       `Онлайн: ${navigator.onLine === false ? 'не' : 'да / неустановено'}`,
@@ -1480,7 +1554,20 @@
       const button = event.target.closest('[data-template-action]');
       if (!button) return;
       if (button.dataset.templateAction === 'use') useTemplate(button.dataset.templateId);
+      if (button.dataset.templateAction === 'edit') openTemplateEditor(button.dataset.templateId);
       if (button.dataset.templateAction === 'remove') removeTemplate(button.dataset.templateId);
+    });
+    el('templateEditForm').addEventListener('submit', saveEditedTemplate);
+    el('templateEditForm').addEventListener('input', updateTemplateDraftStatus);
+    el('templateEditForm').addEventListener('change', updateTemplateDraftStatus);
+    el('closeTemplateEdit').addEventListener('click', closeTemplateEditor);
+    el('cancelTemplateEdit').addEventListener('click', closeTemplateEditor);
+    el('templateEditDialog').addEventListener('cancel', (event) => {
+      event.preventDefault();
+      closeTemplateEditor();
+    });
+    el('templateEditDialog').addEventListener('click', (event) => {
+      if (event.target === el('templateEditDialog')) closeTemplateEditor();
     });
     el('taskForm').addEventListener('submit', handleSubmit);
     el('quickAddForm').addEventListener('submit', submitQuickTask);

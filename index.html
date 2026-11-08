@@ -9,9 +9,9 @@
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" type="image/png" href="./icon-192.png">
   <link rel="apple-touch-icon" href="./icon-192.png">
-  <link rel="stylesheet" href="./styles.css?v=1.7">
+  <link rel="stylesheet" href="./styles.css?v=1.8">
   <title>MyDay · Моят ден</title>
-  <script defer src="./app.js?v=1.7"></script>
+  <script defer src="./app.js?v=1.8"></script>
 </head>
 <body>
   <svg class="svg-sprite" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
@@ -40,7 +40,7 @@
       <a class="brand" href="./" aria-label="MyDay — начало">
         <span class="brand-mark"><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg></span>
         <span>myday<span class="brand-dot">.</span></span>
-        <span class="version">1.7</span>
+        <span class="version">1.8</span>
       </a>
       <div class="top-actions">
         <button class="icon-button" id="themeButton" type="button" aria-label="Смени темата" title="Светла / тъмна тема">
@@ -203,7 +203,7 @@
       </section>
     </main>
 
-    <footer>MyDay 1.7 <span aria-hidden="true">·</span> Просто, лично и безплатно <span aria-hidden="true">·</span> Данните са на твоето устройство <span id="offlineStatus" class="offline-status" hidden>· Офлайн режим</span></footer>
+    <footer>MyDay 1.8 <span aria-hidden="true">·</span> Просто, лично и безплатно <span aria-hidden="true">·</span> Данните са на твоето устройство <span id="offlineStatus" class="offline-status" hidden>· Офлайн режим</span></footer>
   </div>
 
   <button id="mobileAdd" class="mobile-add" type="button" aria-label="Добави нова задача"><svg class="icon"><use href="#i-plus"/></svg></button>
@@ -324,6 +324,44 @@
       <div id="trashList" class="trash-list"></div>
     </div>
     <div class="dialog-footer"><button class="secondary-button" id="closeTrashBottom" type="button">Затвори</button></div>
+  </dialog>
+  <dialog id="templateEditDialog" class="task-dialog template-edit-dialog" aria-labelledby="templateEditTitle">
+    <form id="templateEditForm">
+      <div class="dialog-header">
+        <div><p class="eyebrow muted">МОИТЕ ШАБЛОНИ</p><h2 id="templateEditTitle">Редактирай шаблон</h2></div>
+        <button class="icon-button" id="closeTemplateEdit" type="button" aria-label="Затвори редактора"><svg class="icon"><use href="#i-close"/></svg></button>
+      </div>
+      <div class="dialog-body">
+        <p class="template-edit-hint">Промените са само в шаблона. Задачите, които вече си създал от него, няма да се променят.</p>
+        <label class="field-label" for="templateEditName">Име на шаблона *</label>
+        <input id="templateEditName" class="text-input" type="text" maxlength="160" required autocomplete="off">
+        <label class="field-label" for="templateEditNote">Бележка <span class="optional">(по желание)</span></label>
+        <textarea id="templateEditNote" class="text-input" rows="2" maxlength="1500"></textarea>
+        <div class="field-grid">
+          <div>
+            <label class="field-label" for="templateEditCategory">Категория</label>
+            <select id="templateEditCategory" class="text-input">
+              <option value="personal">Лични</option><option value="work">Работа</option>
+              <option value="shopping">Пазаруване</option><option value="other">Други</option>
+            </select>
+          </div>
+          <div>
+            <label class="field-label" for="templateEditPriority">Важност</label>
+            <select id="templateEditPriority" class="text-input">
+              <option value="normal">Обикновена</option><option value="high">Важна</option>
+            </select>
+          </div>
+        </div>
+        <label class="field-label" for="templateEditItems">Подзадачи <span class="optional">(по една на ред)</span></label>
+        <textarea id="templateEditItems" class="text-input" rows="6" maxlength="3200" placeholder="Мляко&#10;Кафе&#10;Салфетки"></textarea>
+        <p class="repeat-help">До 30 реда, най-много 100 символа на ред. Редовете може да се добавят, изтриват или разместват.</p>
+        <p id="templateEditDraftStatus" class="template-edit-status" role="status">Няма незапазени промени</p>
+      </div>
+      <div class="dialog-footer">
+        <button class="secondary-button" id="cancelTemplateEdit" type="button">Отказ</button>
+        <button class="save-button" type="submit">Запази шаблона</button>
+      </div>
+    </form>
   </dialog>
   <dialog id="installDialog" class="task-dialog install-dialog" aria-labelledby="installTitle">
     <div class="dialog-header">

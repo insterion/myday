@@ -462,3 +462,17 @@ textarea.text-input { resize: vertical; }
 .install-report { line-height:1.4; font-size:12px; }
 #copyInstallReport { margin:10px 0 3px; }
 @media (max-width:450px) { .install-nudge { flex-direction:column; align-items:flex-start; } .install-nudge button { width:100%; } .install-body { padding:9px 17px 15px; } .install-dialog .dialog-header { padding:20px 17px 10px; } .install-dialog .dialog-footer { padding:13px 17px 17px; } }
+
+/* 1.8 — compact template editor on Android, no change to task records. */
+.template-item-actions { flex-wrap: wrap; gap: 7px; }
+.template-edit { background: var(--accent-soft); color: var(--accent-text); border: 1px solid var(--border); }
+.template-edit-dialog { width: min(520px, calc(100% - 24px)); }
+.template-edit-hint { margin: 3px 0 12px; border-radius: 11px; background: var(--surface2); padding: 11px 12px; color: var(--muted); font-size: 12px; line-height: 1.55; }
+.template-edit-status { margin: 14px 0 0; color: var(--muted); font-size: 12px; font-weight: 650; }
+.template-edit-status.dirty { color: var(--red); }
+@media (max-width: 420px) {
+  .template-item-actions button { padding: 8px 11px; }
+  .template-edit-dialog .dialog-header { padding: 20px 17px 10px; }
+  .template-edit-dialog .dialog-body { padding: 10px 17px 18px; }
+  .template-edit-dialog .dialog-footer { padding: 13px 17px 17px; }
+}
