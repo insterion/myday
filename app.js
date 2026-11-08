@@ -4,7 +4,9 @@
   const TASKS_KEY = 'myday.tasks.v1';
   const THEME_KEY = 'myday.theme.v1';
   const SORT_KEY = 'myday.sort.v1';
+  const HISTORY_FILTER_KEY = 'myday.historyFilter.v1';
   const SORT_MODES = ['date', 'priority', 'newest'];
+  const HISTORY_FILTERS = ['all', 'completed', 'skipped'];
   const CATEGORIES = {
     work: 'Работа', personal: 'Лични', shopping: 'Пазаруване', other: 'Други'
   };
@@ -27,6 +29,7 @@
   let editorOutdated = false;
   let tasks = readTasks();
   let sortMode = 'date';
+  let historyFilter = 'all';
   let view = 'today';
   let editingId = null;
   let editorInitialState = '';
@@ -320,6 +323,8 @@
       if (view === 'upcoming' && (isFinished(task) || !task.date || task.date <= today)) return false;
       if (view === 'all' && isFinished(task)) return false;
       if (view === 'done' && !isFinished(task)) return false;
+      if (view === 'done' && historyFilter === 'completed' && !task.done) return false;
+      if (view === 'done' && historyFilter === 'skipped' && !task.skipped) return false;
       if (view === 'calendar' && (isFinished(task) || task.date !== selectedDate)) return false;
       if (category !== 'all' && task.category !== category) return false;
       if (q && !(task.title + ' ' + task.note + ' ' + task.subtasks.map((part) => part.text).join(' ')).toLocaleLowerCase('bg-BG').includes(q)) return false;
@@ -436,12 +441,35 @@
     if (count) el('overdueToolsTitle').textContent = `${count} ${count === 1 ? 'просрочена задача' : 'просрочени задачи'}`;
   }
 
+  function renderHistoryFilters() {
+    const panel = el('historyFilters');
+    panel.hidden = view !== 'done';
+    if (panel.hidden) return;
+    // Counts respect the category and search filters, but not the selected history type.
+    const category = el('categoryFilter').value;
+    const query = el('searchInput').value.trim().toLocaleLowerCase('bg-BG');
+    const entries = tasks.filter((task) => {
+      if (task.deletedAt || !isFinished(task)) return false;
+      if (category !== 'all' && task.category !== category) return false;
+      if (query && !(task.title + ' ' + task.note + ' ' + task.subtasks.map((part) => part.text).join(' '))
+        .toLocaleLowerCase('bg-BG').includes(query)) return false;
+      return true;
+    });
+    el('historyCountAll').textContent = entries.length;
+    el('historyCountCompleted').textContent = entries.filter((task) => task.done).length;
+    el('historyCountSkipped').textContent = entries.filter((task) => task.skipped).length;
+    panel.querySelectorAll('[data-history-filter]').forEach((button) => {
+      button.setAttribute('aria-pressed', String(button.dataset.historyFilter === historyFilter));
+    });
+  }
+
   function renderList() {
     el('sectionEyebrow').textContent = VIEWS[view][0];
     el('listTitle').textContent = view === 'calendar'
       ? `Задачи за ${new Intl.DateTimeFormat('bg-BG', { day: 'numeric', month: 'long' }).format(new Date(`${selectedDate}T12:00:00`))}`
       : VIEWS[view][1];
     el('sortControls').hidden = view === 'done';
+    renderHistoryFilters();
     document.querySelectorAll('[data-view]').forEach((button) => {
       const active = button.dataset.view === view;
       button.classList.toggle('active', active);
@@ -457,6 +485,7 @@
       return;
     }
     const hasFilter = Boolean(el('searchInput').value.trim()) || el('categoryFilter').value !== 'all';
+    const filteredHistory = view === 'done' && historyFilter !== 'all';
     const messages = {
       today: ['Спокойно начало!', 'Нямаш задачи за днес. Добави една малка стъпка.'],
       upcoming: ['Нищо предстоящо', 'Тук ще виждаш задачите, планирани за следващите дни.'],
@@ -466,7 +495,11 @@
     };
     const [title, description] = hasFilter
       ? ['Няма намерени задачи', 'Опитай друга дума или категория.']
-      : messages[view];
+      : filteredHistory
+        ? (historyFilter === 'completed'
+          ? ['Няма изпълнени задачи', 'Избери „Всички“, за да видиш и пропуснатите.']
+          : ['Няма пропуснати задачи', 'Избери „Всички“, за да видиш цялата история.'])
+        : messages[view];
     el('taskList').innerHTML = `<div class="empty-state">
       <span class="empty-icon">${icon(view === 'done' ? 'check' : 'sparkle')}</span>
       <h3>${title}</h3><p>${description}</p>
@@ -1044,6 +1077,17 @@
       if (SORT_MODES.includes(savedSort)) sortMode = savedSort;
     } catch { /* keep default sort */ }
     el('sortSelect').value = sortMode;
+    try {
+      const savedHistoryFilter = localStorage.getItem(HISTORY_FILTER_KEY);
+      if (HISTORY_FILTERS.includes(savedHistoryFilter)) historyFilter = savedHistoryFilter;
+    } catch { /* keep the default filter */ }
+    el('historyFilters').addEventListener('click', (event) => {
+      const button = event.target.closest('button[data-history-filter]');
+      if (!button || !HISTORY_FILTERS.includes(button.dataset.historyFilter)) return;
+      historyFilter = button.dataset.historyFilter;
+      try { localStorage.setItem(HISTORY_FILTER_KEY, historyFilter); } catch { /* use this session */ }
+      renderList();
+    });
     el('sortSelect').addEventListener('change', () => {
       sortMode = SORT_MODES.includes(el('sortSelect').value) ? el('sortSelect').value : 'date';
       try { localStorage.setItem(SORT_KEY, sortMode); } catch { /* keep for current session */ }

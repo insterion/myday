@@ -9,9 +9,9 @@
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" type="image/png" href="./icon-192.png">
   <link rel="apple-touch-icon" href="./icon-192.png">
-  <link rel="stylesheet" href="./styles.css?v=1.3">
+  <link rel="stylesheet" href="./styles.css?v=1.4">
   <title>MyDay · Моят ден</title>
-  <script defer src="./app.js?v=1.3"></script>
+  <script defer src="./app.js?v=1.4"></script>
 </head>
 <body>
   <svg class="svg-sprite" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
@@ -39,7 +39,7 @@
       <a class="brand" href="./" aria-label="MyDay — начало">
         <span class="brand-mark"><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg></span>
         <span>myday<span class="brand-dot">.</span></span>
-        <span class="version">1.3</span>
+        <span class="version">1.4</span>
       </a>
       <div class="top-actions">
         <button class="icon-button" id="themeButton" type="button" aria-label="Смени темата" title="Светла / тъмна тема">
@@ -169,6 +169,11 @@
           </select>
           <span class="sort-hint">Закрепените са най-отгоре; подреждането важи във всяка група</span>
         </div>
+        <div id="historyFilters" class="history-filters" role="group" aria-label="Филтър на историята" hidden>
+          <button type="button" data-history-filter="all" aria-pressed="true">Всички <span id="historyCountAll">0</span></button>
+          <button type="button" data-history-filter="completed" aria-pressed="false">Изпълнени <span id="historyCountCompleted">0</span></button>
+          <button type="button" data-history-filter="skipped" aria-pressed="false">Пропуснати <span id="historyCountSkipped">0</span></button>
+        </div>
         <section class="overdue-tools" id="overdueTools" aria-label="Бързо управление на просрочени задачи" hidden>
           <div class="overdue-tools-info">
             <strong id="overdueToolsTitle">Просрочени задачи</strong>
@@ -188,7 +193,7 @@
       </section>
     </main>
 
-    <footer>MyDay 1.3 <span aria-hidden="true">·</span> Просто, лично и безплатно <span aria-hidden="true">·</span> Данните са на твоето устройство <span id="offlineStatus" class="offline-status" hidden>· Офлайн режим</span></footer>
+    <footer>MyDay 1.4 <span aria-hidden="true">·</span> Просто, лично и безплатно <span aria-hidden="true">·</span> Данните са на твоето устройство <span id="offlineStatus" class="offline-status" hidden>· Офлайн режим</span></footer>
   </div>
 
   <button id="mobileAdd" class="mobile-add" type="button" aria-label="Добави нова задача"><svg class="icon"><use href="#i-plus"/></svg></button>

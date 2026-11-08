@@ -391,3 +391,19 @@ textarea.text-input { resize: vertical; }
 .task-card.skipped .task-check .icon { stroke-width: 2; }
 .task-card.skipped .task-title { color: var(--muted); }
 .pill.skipped-pill { background: var(--surface2); color: var(--muted); border: 1px dashed var(--border); }
+
+
+/* MyDay 1.4 — compact history filters, visible only in History. */
+.history-filters { display: flex; flex-wrap: wrap; gap: 7px; margin: -4px 0 17px; }
+.history-filters[hidden] { display: none; }
+.history-filters button { display: inline-flex; align-items: center; gap: 6px; justify-content: center;
+  min-height: 40px; padding: 9px 12px; border: 1px solid var(--border); border-radius: 11px;
+  background: var(--surface); color: var(--muted); font-size: 13px; font-weight: 700; }
+.history-filters button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-text); }
+.history-filters button span { display: inline-grid; place-items: center; min-width: 19px;
+  padding: 2px 5px; border-radius: 7px; background: var(--surface2); font-size: 11px; font-weight: 750; }
+.history-filters button[aria-pressed="true"] span { background: var(--surface); color: var(--accent-text); }
+@media (max-width: 370px) {
+  .history-filters { gap: 5px; }
+  .history-filters button { padding: 8px 9px; font-size: 12px; }
+}
