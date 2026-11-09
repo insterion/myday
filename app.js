@@ -58,6 +58,9 @@
   let movingId = null;
   let selectedDate = localDate();
   let monthCursor = selectedDate.slice(0, 7);
+  // An installed PWA can remain suspended overnight on Android.
+  // Recheck the date and stored data when it returns to the foreground.
+  let lastDisplayedDay = selectedDate;
   let toastTimer = null;
   const expandedSubtasks = new Set();
   const pendingOnlySubtasks = new Set();
@@ -189,6 +192,49 @@
       return [];
     }
   }
+  // Read the latest *local* records when Chrome restores an existing PWA tab.
+  // The "storage" event may be delayed or missed while the app is suspended.
+  // Never replace an open editor's draft: saving that draft is blocked until
+  // the user closes and reopens it with the updated task data.
+  function refreshOnResume() {
+    const today = localDate();
+    const dayChanged = today !== lastDisplayedDay;
+    lastDisplayedDay = today;
+    let changedTasks = false;
+    let changedTemplates = false;
+    let storedTasks;
+    let storedTemplates;
+    try {
+      storedTasks = localStorage.getItem(TASKS_KEY);
+      storedTemplates = localStorage.getItem(TEMPLATES_KEY);
+    } catch {
+      // Keep the in-memory snapshot visible; a transient Android storage
+      // failure must never be interpreted as an empty task list.
+      storageProblem = 'unavailable';
+      renderStorageWarning();
+      showToast('Не мога да проверя локалните данни. Не прави промени, преди достъпът да се възстанови.');
+      return;
+    }
+    if (storedTasks !== lastSavedRaw || storageProblem === 'unavailable') {
+      if (el('taskDialog')?.open) editorOutdated = true;
+      tasks = readTasks();
+      changedTasks = true;
+    }
+    if (storedTemplates !== templatesRaw || templatesProblem) {
+      templates = readTemplates();
+      changedTemplates = true;
+    }
+    if (changedTasks || changedTemplates || dayChanged) render();
+    else updateOfflineStatus();
+    if (changedTasks || changedTemplates) {
+      showToast(editorOutdated
+        ? 'Задачите са променени в друг прозорец. Затвори редактора и отвори задачата отново.'
+        : 'MyDay провери и обнови локалните записи.');
+    } else if (dayChanged) {
+      showToast('Нов ден: „Днес“ и календарът са обновени.');
+    }
+  }
+
   function saveTasks(next) {
     if (storageProblem) {
       showToast('Записът е блокиран за защита на данните. Виж предупреждението горе.');
@@ -2174,7 +2220,11 @@
     el('importButton').addEventListener('click', () => el('importFile').click());
     el('importFile').addEventListener('change', (event) => importBackup(event.target.files?.[0]));
     document.addEventListener('click', (event) => { if (!el('toolsMenu').contains(event.target)) el('toolsMenu').open = false; });
-    document.addEventListener('visibilitychange', () => { if (!document.hidden) render(); });
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshOnResume(); });
+    // Handles restoration from Android/Chrome's back-forward cache as well as
+    // returning from another app when visibilitychange was not emitted.
+    window.addEventListener('pageshow', refreshOnResume);
+    window.addEventListener('focus', () => { if (!document.hidden) refreshOnResume(); });
     initInstallUi();
     try { templateSort = ['popular', 'recent'].includes(localStorage.getItem(TEMPLATE_SORT_KEY)) ? localStorage.getItem(TEMPLATE_SORT_KEY) : 'popular'; } catch { /* default */ }
     el('templateSort').value = templateSort;
