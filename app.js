@@ -1392,6 +1392,23 @@
       el('toolsMenu').open = false;
       return;
     }
+    // A second tab can update localStorage while this tab is sleeping in Android.
+    // Never download a potentially stale snapshot; refresh and ask for a fresh export.
+    try {
+      if (localStorage.getItem(TASKS_KEY) !== lastSavedRaw ||
+          localStorage.getItem(TEMPLATES_KEY) !== templatesRaw) {
+        tasks = readTasks();
+        templates = readTemplates();
+        render();
+        showToast('Данните са обновени в друг прозорец. Провери задачите и натисни „Запази backup“ отново.');
+        el('toolsMenu').open = false;
+        return;
+      }
+    } catch {
+      showToast('Няма достъп до записите. Не мога да подготвя надежден backup.');
+      el('toolsMenu').open = false;
+      return;
+    }
     const created = new Date();
     const backup = { app: 'MyDay', version: 9, exportedAt: created.toISOString(), tasks, templates };
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
@@ -1417,29 +1434,76 @@
       el('toolsMenu').open = false;
     }
   }
+  // One validator for both file inspection and import: a report should never
+  // label a file valid if the import logic would reject its structure.
+  async function readValidatedBackup(file) {
+    if (file.size > 3 * 1024 * 1024) throw new Error('Файлът е твърде голям (макс. 3 MB).');
+    const backup = JSON.parse(await file.text());
+    if (backup.app !== 'MyDay' || ![1, 2, 3, 4, 5, 6, 7, 8, 9].includes(backup.version) || !Array.isArray(backup.tasks) || backup.tasks.length > 5000) {
+      throw new Error('Това не е съвместим MyDay backup файл.');
+    }
+    // Every record needs its own persistent ID, including backups from 0.1.
+    // Otherwise re-importing could silently create duplicate copies.
+    if (backup.tasks.some((item) => !item || typeof item !== 'object' || Array.isArray(item) ||
+        typeof item.id !== 'string' || !item.id.trim())) {
+      throw new Error('Backup съдържа запис без валиден идентификатор. Нищо не е променено.');
+    }
+    const imported = backup.tasks.map(normalizeTask);
+    if (imported.some((task) => !task)) throw new Error('Някои задачи във файла са невалидни. Нищо не е променено.');
+    const importIds = new Set();
+    for (const task of imported) {
+      if (importIds.has(task.id)) throw new Error('Backup файлът съдържа повтарящи се идентификатори. Нищо не е променено.');
+      importIds.add(task.id);
+    }
+    // Versions 1–7 had no template collection. Their import must not alter it.
+    const importedTemplates = backup.version >= 8 ? validateTemplates(backup.templates) : [];
+    return { backup, imported, importedTemplates };
+  }
+
+  async function verifyBackupFile(file) {
+    if (!file) return;
+    const dialog = el('backupVerifyDialog');
+    const status = el('backupVerifyStatus');
+    const details = el('backupVerifyDetails');
+    el('backupVerifyFileName').textContent = file.name;
+    details.hidden = true;
+    status.textContent = 'Проверявам файла...';
+    status.className = 'backup-verify-status';
+    el('toolsMenu').open = false;
+    dialog.showModal();
+    try {
+      const { backup, imported, importedTemplates } = await readValidatedBackup(file);
+      const active = imported.filter((task) => !task.deletedAt && !isFinished(task)).length;
+      const completed = imported.filter((task) => !task.deletedAt && task.done).length;
+      const skipped = imported.filter((task) => !task.deletedAt && task.skipped).length;
+      const trash = imported.filter((task) => Boolean(task.deletedAt)).length;
+      const validDate = typeof backup.exportedAt === 'string' && !Number.isNaN(Date.parse(backup.exportedAt));
+      const backupDate = validDate ? new Intl.DateTimeFormat('bg-BG', {
+        dateStyle: 'medium', timeStyle: 'short'
+      }).format(new Date(backup.exportedAt)) : 'Не е записана';
+      el('backupVerifyVersion').textContent = String(backup.version);
+      el('backupVerifyDate').textContent = backupDate;
+      el('backupVerifyActive').textContent = String(active);
+      el('backupVerifyFinished').textContent = `${completed} / ${skipped}`;
+      el('backupVerifyTrash').textContent = String(trash);
+      el('backupVerifyTemplates').textContent = String(importedTemplates.length);
+      status.textContent = imported.length || importedTemplates.length
+        ? 'Файлът е валиден. Няма направени промени по задачите.'
+        : 'Файлът е валиден, но не съдържа задачи или шаблони.';
+      status.className = 'backup-verify-status valid';
+      details.hidden = false;
+    } catch (error) {
+      status.textContent = `Проверката не е успешна: ${error instanceof Error ? error.message : 'Невалиден файл'}`;
+      status.className = 'backup-verify-status invalid';
+    } finally {
+      el('verifyBackupFile').value = '';
+    }
+  }
+
   async function importBackup(file) {
     if (!file) return;
     try {
-      if (file.size > 3 * 1024 * 1024) throw new Error('Файлът е твърде голям (макс. 3 MB).');
-      const backup = JSON.parse(await file.text());
-      if (backup.app !== 'MyDay' || ![1, 2, 3, 4, 5, 6, 7, 8, 9].includes(backup.version) || !Array.isArray(backup.tasks) || backup.tasks.length > 5000) {
-        throw new Error('Това не е съвместим MyDay backup файл.');
-      }
-      // Every record needs its own persistent ID, including backups from 0.1.
-      // Otherwise re-importing could silently create duplicate copies.
-      if (backup.tasks.some((item) => !item || typeof item !== 'object' || Array.isArray(item) ||
-          typeof item.id !== 'string' || !item.id.trim())) {
-        throw new Error('Backup съдържа запис без валиден идентификатор. Нищо не е променено.');
-      }
-      const imported = backup.tasks.map(normalizeTask);
-      if (imported.some((task) => !task)) throw new Error('Някои задачи във файла са невалидни. Нищо не е променено.');
-      const importIds = new Set();
-      for (const task of imported) {
-        if (importIds.has(task.id)) throw new Error('Backup файлът съдържа повтарящи се идентификатори. Нищо не е променено.');
-        importIds.add(task.id);
-      }
-      // Versions 1–7 had no template collection. Their import must not alter it.
-      const importedTemplates = backup.version >= 8 ? validateTemplates(backup.templates) : [];
+      const { backup, imported, importedTemplates } = await readValidatedBackup(file);
       if (templatesProblem && importedTemplates.length) throw new Error('Съществуващите шаблони не могат да се прочетат. Няма да ги презапиша.');
       const templateIds = new Set(templates.map((item) => item.id));
       const freshTemplates = importedTemplates.filter((item) => !templateIds.has(item.id));
@@ -1844,6 +1908,14 @@
     el('backupReminderSave').addEventListener('click', exportBackup);
     el('backupReminderLater').addEventListener('click', snoozeBackupReminder);
     el('exportButton').addEventListener('click', exportBackup);
+    el('verifyBackupButton').addEventListener('click', () => el('verifyBackupFile').click());
+    el('verifyBackupFile').addEventListener('change', (event) => { void verifyBackupFile(event.target.files?.[0]); });
+    const closeBackupVerify = () => el('backupVerifyDialog').close();
+    el('closeBackupVerify').addEventListener('click', closeBackupVerify);
+    el('closeBackupVerifyBottom').addEventListener('click', closeBackupVerify);
+    el('backupVerifyDialog').addEventListener('click', (event) => {
+      if (event.target === el('backupVerifyDialog')) closeBackupVerify();
+    });
     el('importButton').addEventListener('click', () => el('importFile').click());
     el('importFile').addEventListener('change', (event) => importBackup(event.target.files?.[0]));
     document.addEventListener('click', (event) => { if (!el('toolsMenu').contains(event.target)) el('toolsMenu').open = false; });

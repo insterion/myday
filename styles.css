@@ -543,3 +543,16 @@ textarea.text-input { resize: vertical; }
 .task-card > .task-check, .task-card > .task-pin,
 .task-card > .task-move, .task-card > .task-options { margin-top: 4px; }
 .task-options { align-self: flex-start; }
+
+/* 1.14: compact, non-destructive backup-file verification. */
+.backup-verify-dialog { width: min(520px, calc(100% - 24px)); }
+.backup-verify-status { font-size: 13px; line-height: 1.55; padding: 12px 14px; border-radius: 11px; background: var(--surface2); color: var(--muted); margin: 0 0 10px; font-weight: 700; }
+.backup-verify-status.valid { background: var(--accent-soft); color: var(--accent-text); }
+.backup-verify-status.invalid { color: var(--red); }
+.backup-verify-filename { font-size: 12px; overflow-wrap: anywhere; color: var(--muted); margin: 0 0 12px; }
+.backup-verify-details { display: grid; gap: 0; border-top: 1px solid var(--border); }
+.backup-verify-details[hidden] { display: none; }
+.backup-verify-details > div { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
+.backup-verify-details strong { text-align: right; color: var(--ink); }
+.backup-verify-hint { font-size: 12px; line-height: 1.6; color: var(--muted); margin: 16px 0 0; }
+@media (max-width: 420px) { .backup-verify-dialog .dialog-header { padding: 20px 17px 10px; } .backup-verify-dialog .dialog-body { padding: 10px 17px 18px; } .backup-verify-dialog .dialog-footer { padding: 13px 17px 17px; } }
