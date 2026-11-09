@@ -61,6 +61,11 @@
   let toastTimer = null;
   const expandedSubtasks = new Set();
   const pendingOnlySubtasks = new Set();
+  // Unsaved text in the inline checklist field is kept only in memory.
+  const inlineSubtaskDrafts = new Map();
+  // 1.17: Editing a checklist item stays local until explicitly saved.
+  // Keep the draft across card re-renders (e.g. checking a different item).
+  let inlineSubtaskEdit = null;
 
   function localDate(date = new Date()) {
     const y = date.getFullYear();
@@ -634,10 +639,25 @@
             <div class="subtask-tools" role="group" aria-label="Действия за подзадачите">
               ${checked < total ? `<button type="button" data-action="subtasks-complete" data-id="${escapeHtml(task.id)}" aria-label="Отметни всички подзадачи на ${escapeHtml(task.title)}">Отметни всички</button>` : ''}
               ${checked > 0 ? `<button type="button" data-action="subtasks-reset" data-id="${escapeHtml(task.id)}" aria-label="Изчисти отметките на подзадачите на ${escapeHtml(task.title)}">Изчисти отметките</button>` : ''}
+              <button type="button" data-action="share-list" data-id="${escapeHtml(task.id)}">Сподели списъка</button>
+              <button type="button" data-action="copy-list" data-id="${escapeHtml(task.id)}">Копирай списъка</button>
             </div>
           </details>
         </div>` : ''}
-        ${visibleParts.length ? visibleParts.map((part) => `<button type="button" class="subtask-item${part.done ? ' checked' : ''}" data-action="subtask" data-id="${escapeHtml(task.id)}" data-sub-id="${escapeHtml(part.id)}" ${isFinished(task) ? 'disabled' : ''} aria-pressed="${part.done}" aria-label="${part.done ? 'Премахни отметката от' : 'Отметни'}: ${escapeHtml(part.text)}"><span class="subtask-box">${icon('check')}</span><span class="subtask-item-text">${escapeHtml(part.text)}</span></button>`).join('') : '<p class="subtask-all-done">Всички подзадачи са отметнати.</p>'}
+        ${visibleParts.length ? visibleParts.map((part) => inlineSubtaskEdit?.taskId === task.id && inlineSubtaskEdit?.subId === part.id
+          ? `<form class="inline-edit-subtask-form" data-inline-edit-task="${escapeHtml(task.id)}" data-inline-edit-sub="${escapeHtml(part.id)}" autocomplete="off">
+              <input class="inline-edit-subtask-input" name="newText" type="text" maxlength="100" required value="${escapeHtml(inlineSubtaskEdit.value)}" aria-label="Промени текста на подзадачата">
+              <button class="inline-edit-subtask-save" type="submit">Запази</button>
+              <button class="inline-edit-subtask-cancel" type="button" data-action="cancel-subtask-edit" data-id="${escapeHtml(task.id)}" data-sub-id="${escapeHtml(part.id)}">Отказ</button>
+            </form>`
+          : `<div class="subtask-row">
+              <button type="button" class="subtask-item${part.done ? ' checked' : ''}" data-action="subtask" data-id="${escapeHtml(task.id)}" data-sub-id="${escapeHtml(part.id)}" ${isFinished(task) ? 'disabled' : ''} aria-pressed="${part.done}" aria-label="${part.done ? 'Премахни отметката от' : 'Отметни'}: ${escapeHtml(part.text)}"><span class="subtask-box">${icon('check')}</span><span class="subtask-item-text">${escapeHtml(part.text)}</span></button>
+              ${!isFinished(task) ? `<button type="button" class="subtask-rename-button" data-action="edit-subtask" data-id="${escapeHtml(task.id)}" data-sub-id="${escapeHtml(part.id)}" aria-label="Промени: ${escapeHtml(part.text)}" title="Промени текста">${icon('pencil')}</button>` : ''}
+            </div>`).join('') : '<p class="subtask-all-done">Всички подзадачи са отметнати.</p>'}
+        ${!isFinished(task) ? total < MAX_SUBTASKS ? `<form class="quick-subtask-form" data-quick-subtask-form="${escapeHtml(task.id)}" autocomplete="off">
+          <input class="quick-subtask-input" name="item" type="text" maxlength="100" placeholder="Добави продукт или подзадача…" aria-label="Нов ред в ${escapeHtml(task.title)}" value="${escapeHtml(inlineSubtaskDrafts.get(task.id) || '')}" required>
+          <button type="submit">+ Добави</button>
+        </form>` : `<p class="subtask-limit">Достигнати са 30 подзадачи.</p>` : ''}
       </div>` : ''}
       </div>` : '';
     return `<article class="task-card${task.done ? ' completed' : ''}${task.skipped ? ' skipped' : ''}${!isFinished(task) && task.pinned ? ' pinned' : ''}">
@@ -668,6 +688,8 @@
         <div class="task-options-panel" role="group" aria-label="Допълнителни действия за ${escapeHtml(task.title)}">
           <button type="button" data-action="duplicate" data-id="${escapeHtml(task.id)}">${icon('copy')} Копирай</button>
           <button type="button" data-action="save-template" data-id="${escapeHtml(task.id)}">${icon('sparkle')} Запази шаблон</button>
+          ${total ? `<button type="button" data-action="share-list" data-id="${escapeHtml(task.id)}">${icon('copy')} Сподели списъка</button>
+          <button type="button" data-action="copy-list" data-id="${escapeHtml(task.id)}">${icon('copy')} Копирай списъка</button>` : ''}
           ${!isFinished(task) && task.repeat !== 'none' ? `<button type="button" data-action="skip" data-id="${escapeHtml(task.id)}">${icon('repeat')} Пропусни този път</button>` : ''}
           <button type="button" class="danger-action" data-action="delete" data-id="${escapeHtml(task.id)}">${icon('trash')} Изтрий</button>
         </div>
@@ -962,6 +984,154 @@
       subtasks: task.subtasks.map((part) => part.id === subId ? { ...part, done: !part.done } : part)
     });
     saveTasks(next);
+  }
+
+  // 1.15: Share only the selected checklist. A private note, other tasks and
+  // backup contents are never included. Android sharing happens only on tap.
+  function checklistText(task) {
+    const remaining = task.subtasks.filter((part) => !part.done).length;
+    return `${task.title}\n\n${task.subtasks.map((part) => `${part.done ? '☑' : '☐'} ${part.text}`).join('\n')}\n\nОстават: ${remaining} от ${task.subtasks.length}`;
+  }
+  async function copyChecklist(task) {
+    if (!task.subtasks.length) return;
+    const data = checklistText(task);
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(data);
+      } else {
+        const input = document.createElement('textarea');
+        input.value = data;
+        input.setAttribute('readonly', '');
+        input.style.cssText = 'position:fixed;left:-9999px;top:0';
+        document.body.append(input);
+        input.select();
+        const okay = document.execCommand('copy');
+        input.remove();
+        if (!okay) throw new Error('Clipboard unavailable');
+      }
+      showToast('Списъкът е копиран. Личната бележка не е включена.');
+    } catch {
+      showToast('Не успях да копирам списъка. Опитай отново в Chrome.');
+    }
+  }
+  function shareChecklist(task) {
+    if (!task.subtasks.length) return;
+    const data = checklistText(task);
+    // Invoke navigator.share from the actual button click, not a timer or effect.
+    if (typeof navigator.share === 'function') {
+      try {
+        const outcome = navigator.share({ title: task.title, text: data });
+        Promise.resolve(outcome).catch((error) => {
+          if (error?.name !== 'AbortError') showToast('Споделянето не успя. Използвай „Копирай списъка“.');
+        });
+      } catch {
+        showToast('Споделянето не е достъпно. Използвай „Копирай списъка“.');
+      }
+    } else {
+      showToast('Този браузър не предлага споделяне. Използвай „Копирай списъка“.');
+    }
+  }
+
+  // 1.16: Add one checklist row without entering the full task editor.
+  function addInlineSubtask(taskId, text) {
+    const existing = tasks.find((task) => task.id === taskId);
+    const value = text.trim();
+    if (!existing || existing.deletedAt || isFinished(existing) || !value) return false;
+    if (value.length > 100 || existing.subtasks.length >= MAX_SUBTASKS) {
+      showToast('Можеш да добавиш до 30 реда, всеки с до 100 символа.');
+      return false;
+    }
+    const previous = tasks;
+    const updated = tasks.map((task) => task.id !== taskId ? task : {
+      ...task, autoGenerated: false,
+      subtasks: [...task.subtasks, { id: makeId(), text: value, done: false }]
+    });
+    if (!saveTasks(updated)) return false;
+    inlineSubtaskDrafts.delete(taskId);
+    expandedSubtasks.add(taskId);
+    // saveTasks() redraws the card; point focus back to its new input.
+    renderList();
+    const freshInput = [...el('taskList').querySelectorAll('form[data-quick-subtask-form]')]
+      .find((form) => form.dataset.quickSubtaskForm === taskId)?.querySelector('input');
+    freshInput?.focus({ preventScroll: true });
+    const savedRaw = lastSavedRaw;
+    showToast(`Добавено: ${value}`, {
+      label: 'Върни',
+      run: () => {
+        // Do not undo over newer changes from this or another window.
+        if (lastSavedRaw !== savedRaw) {
+          showToast('Има по-нови промени. Връщането не е приложено.');
+          return;
+        }
+        if (saveTasks(previous)) showToast('Новият ред е премахнат.');
+      }
+    });
+    return true;
+  }
+
+  // 1.17: Quick rename an individual checklist item without opening the task editor.
+  function inlineSubtaskInput() {
+    return [...el('taskList').querySelectorAll('form[data-inline-edit-task]')]
+      .find((form) => form.dataset.inlineEditTask === inlineSubtaskEdit?.taskId &&
+        form.dataset.inlineEditSub === inlineSubtaskEdit?.subId)?.querySelector('input[name="newText"]');
+  }
+  function beginInlineSubtaskEdit(taskId, subId) {
+    const task = tasks.find((item) => item.id === taskId);
+    const part = task?.subtasks.find((item) => item.id === subId);
+    if (!task || task.deletedAt || isFinished(task) || !part) return;
+    if (inlineSubtaskEdit && (inlineSubtaskEdit.taskId !== taskId || inlineSubtaskEdit.subId !== subId) &&
+        inlineSubtaskEdit.value !== inlineSubtaskEdit.original &&
+        !confirm('Има незапазена промяна в друг ред. Откажи я?')) return;
+    inlineSubtaskEdit = { taskId, subId, original: part.text, value: part.text };
+    expandedSubtasks.add(taskId);
+    renderList();
+    const input = inlineSubtaskInput();
+    input?.focus({ preventScroll: true });
+    input?.select();
+  }
+  function cancelInlineSubtaskEdit() {
+    if (!inlineSubtaskEdit) return;
+    inlineSubtaskEdit = null;
+    renderList();
+  }
+  function saveInlineSubtaskEdit(taskId, subId) {
+    const edit = inlineSubtaskEdit;
+    if (!edit || edit.taskId !== taskId || edit.subId !== subId) return;
+    const text = edit.value.trim();
+    if (!text || text.length > 100) {
+      showToast('Въведи текст от 1 до 100 символа.');
+      inlineSubtaskInput()?.focus({ preventScroll: true });
+      return;
+    }
+    const task = tasks.find((item) => item.id === taskId);
+    const part = task?.subtasks.find((item) => item.id === subId);
+    if (!task || task.deletedAt || isFinished(task) || !part || part.text !== edit.original) {
+      showToast('Редът е променен или премахнат другаде. Откажи редакцията и го отвори отново.');
+      return;
+    }
+    if (text === edit.original) {
+      cancelInlineSubtaskEdit();
+      return;
+    }
+    const before = tasks;
+    const updated = tasks.map((item) => item.id !== taskId ? item : {
+      ...item, autoGenerated: false,
+      subtasks: item.subtasks.map((row) => row.id === subId ? { ...row, text } : row)
+    });
+    if (!saveTasks(updated)) return; // saveTasks protects against changes in another tab.
+    inlineSubtaskEdit = null;
+    renderList();
+    const expectedRaw = lastSavedRaw;
+    showToast('Редът е променен.', {
+      label: 'Върни',
+      run: () => {
+        if (lastSavedRaw !== expectedRaw) {
+          showToast('Има по-нови промени. Връщането не е приложено.');
+          return;
+        }
+        if (saveTasks(before)) showToast('Предишният текст е възстановен.');
+      }
+    });
   }
 
   // Bulk checklist actions are intentionally separate from completing the parent task.
@@ -1788,6 +1958,8 @@
         if (button.dataset.action === 'edit') openEditor(task);
         if (button.dataset.action === 'duplicate') duplicateTask(task);
         if (button.dataset.action === 'save-template') saveTaskAsTemplate(task);
+        if (button.dataset.action === 'copy-list') copyChecklist(task);
+        if (button.dataset.action === 'share-list') shareChecklist(task);
         if (button.dataset.action === 'move') openMove(task);
         if (button.dataset.action === 'reschedule') rescheduleOverdue([task.id], Number(button.dataset.offset));
         if (button.dataset.action === 'pin') togglePin(task.id);
@@ -1796,6 +1968,8 @@
           else expandedSubtasks.add(task.id);
           renderList();
         }
+        if (button.dataset.action === 'edit-subtask') beginInlineSubtaskEdit(task.id, button.dataset.subId);
+        if (button.dataset.action === 'cancel-subtask-edit') cancelInlineSubtaskEdit();
         if (button.dataset.action === 'subtask') toggleSubtask(task.id, button.dataset.subId);
         if (button.dataset.action === 'subtasks-complete') setAllSubtasks(task.id, true);
         if (button.dataset.action === 'subtasks-reset') setAllSubtasks(task.id, false);
@@ -1805,6 +1979,39 @@
           renderList();
         }
       } else if (event.target.closest('#emptyAdd')) openEditor();
+    });
+    // Preserve drafts during re-renders triggered by checkbox operations.
+    el('taskList').addEventListener('input', (event) => {
+      if (event.target.matches('.inline-edit-subtask-input')) {
+        const form = event.target.closest('form[data-inline-edit-task]');
+        if (form && inlineSubtaskEdit && form.dataset.inlineEditTask === inlineSubtaskEdit.taskId &&
+            form.dataset.inlineEditSub === inlineSubtaskEdit.subId) inlineSubtaskEdit.value = event.target.value;
+        return;
+      }
+      if (!event.target.matches('.quick-subtask-input')) return;
+      const form = event.target.closest('form[data-quick-subtask-form]');
+      if (form) inlineSubtaskDrafts.set(form.dataset.quickSubtaskForm, event.target.value);
+    });
+    el('taskList').addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && event.target.matches('.inline-edit-subtask-input')) {
+        event.preventDefault();
+        event.stopPropagation();
+        cancelInlineSubtaskEdit();
+      }
+    });
+    el('taskList').addEventListener('submit', (event) => {
+      const renameForm = event.target.closest('form[data-inline-edit-task]');
+      if (renameForm) {
+        event.preventDefault();
+        if (inlineSubtaskEdit) inlineSubtaskEdit.value = renameForm.querySelector('input[name="newText"]')?.value || '';
+        saveInlineSubtaskEdit(renameForm.dataset.inlineEditTask, renameForm.dataset.inlineEditSub);
+        return;
+      }
+      const form = event.target.closest('form[data-quick-subtask-form]');
+      if (!form) return;
+      event.preventDefault();
+      const value = form.querySelector('input[name="item"]')?.value || '';
+      addInlineSubtask(form.dataset.quickSubtaskForm, value);
     });
     el('templatesButton').addEventListener('click', () => {
       renderTemplates();
