@@ -31,7 +31,7 @@
   // keeps longer task lists responsive on modest Android devices.
   const shortDateFormatter = new Intl.DateTimeFormat('bg-BG', { day: 'numeric', month: 'short' });
   const searchIndex = new WeakMap(); // Derived data only; never written to localStorage.
-  const checklistActions = new Set(['subtask', 'subtasks-complete', 'subtasks-reset', 'pending-only', 'expand']);
+  const checklistActions = new Set(['subtask', 'subtask-move', 'subtasks-complete', 'subtasks-reset', 'pending-only', 'expand']);
   let checklistFocus = null;
   let searchRenderTimer = null;
   const isFinished = (task) => task.done || task.skipped;
@@ -437,7 +437,7 @@
       .filter((part) => part.dataset.id === id);
     checklistFocus = {
       action, id, subId: button.dataset.subId || '',
-      index: parts.indexOf(button), top: button.getBoundingClientRect().top
+      index: parts.indexOf(button), offset: button.dataset.offset || '', top: button.getBoundingClientRect().top
     };
   }
 
@@ -447,14 +447,20 @@
     if (!saved) return;
     const controls = [...el('taskList').querySelectorAll('button[data-action]')]
       .filter((button) => button.dataset.id === saved.id);
-    const exact = controls.find((button) => button.dataset.action === saved.action &&
-      (!saved.subId || button.dataset.subId === saved.subId));
+    const exact = controls.find((button) => !button.disabled && button.dataset.action === saved.action &&
+      (!saved.subId || button.dataset.subId === saved.subId) &&
+      (!saved.offset || button.dataset.offset === saved.offset));
+    // When an arrow becomes disabled at a boundary, focus the opposite arrow.
+    const alternateArrow = saved.action === 'subtask-move'
+      ? controls.find((button) => !button.disabled && button.dataset.action === 'subtask-move' &&
+          button.dataset.subId === saved.subId)
+      : null;
     const remaining = controls.filter((button) => button.dataset.action === 'subtask');
     // A checked item may disappear under 'Само оставащите'. Focus its next
     // item instead, or the checklist toggle if there are no visible items.
     const fallback = remaining[Math.max(0, Math.min(saved.index, remaining.length - 1))]
       || controls.find((button) => button.dataset.action === 'expand');
-    const target = exact || fallback;
+    const target = exact || alternateArrow || fallback;
     if (!target) return;
     target.focus({ preventScroll: true });
     const delta = target.getBoundingClientRect().top - saved.top;
@@ -644,7 +650,7 @@
             </div>
           </details>
         </div>` : ''}
-        ${visibleParts.length ? visibleParts.map((part) => inlineSubtaskEdit?.taskId === task.id && inlineSubtaskEdit?.subId === part.id
+        ${visibleParts.length ? visibleParts.map((part, visibleIndex) => inlineSubtaskEdit?.taskId === task.id && inlineSubtaskEdit?.subId === part.id
           ? `<form class="inline-edit-subtask-form" data-inline-edit-task="${escapeHtml(task.id)}" data-inline-edit-sub="${escapeHtml(part.id)}" autocomplete="off">
               <input class="inline-edit-subtask-input" name="newText" type="text" maxlength="100" required value="${escapeHtml(inlineSubtaskEdit.value)}" aria-label="Промени текста на подзадачата">
               <button class="inline-edit-subtask-save" type="submit">Запази</button>
@@ -652,6 +658,10 @@
             </form>`
           : `<div class="subtask-row">
               <button type="button" class="subtask-item${part.done ? ' checked' : ''}" data-action="subtask" data-id="${escapeHtml(task.id)}" data-sub-id="${escapeHtml(part.id)}" ${isFinished(task) ? 'disabled' : ''} aria-pressed="${part.done}" aria-label="${part.done ? 'Премахни отметката от' : 'Отметни'}: ${escapeHtml(part.text)}"><span class="subtask-box">${icon('check')}</span><span class="subtask-item-text">${escapeHtml(part.text)}</span></button>
+              ${!isFinished(task) && visibleParts.length > 1 ? `<span class="subtask-reorder" role="group" aria-label="Подреди: ${escapeHtml(part.text)}">
+                <button type="button" data-action="subtask-move" data-id="${escapeHtml(task.id)}" data-sub-id="${escapeHtml(part.id)}" data-offset="-1" aria-label="Премести нагоре: ${escapeHtml(part.text)}" title="Нагоре" ${visibleIndex === 0 ? 'disabled' : ''}>↑</button>
+                <button type="button" data-action="subtask-move" data-id="${escapeHtml(task.id)}" data-sub-id="${escapeHtml(part.id)}" data-offset="1" aria-label="Премести надолу: ${escapeHtml(part.text)}" title="Надолу" ${visibleIndex === visibleParts.length - 1 ? 'disabled' : ''}>↓</button>
+              </span>` : ''}
               ${!isFinished(task) ? `<button type="button" class="subtask-rename-button" data-action="edit-subtask" data-id="${escapeHtml(task.id)}" data-sub-id="${escapeHtml(part.id)}" aria-label="Промени: ${escapeHtml(part.text)}" title="Промени текста">${icon('pencil')}</button>` : ''}
             </div>`).join('') : '<p class="subtask-all-done">Всички подзадачи са отметнати.</p>'}
         ${!isFinished(task) ? total < MAX_SUBTASKS ? `<form class="quick-subtask-form" data-quick-subtask-form="${escapeHtml(task.id)}" autocomplete="off">
@@ -1130,6 +1140,43 @@
           return;
         }
         if (saveTasks(before)) showToast('Предишният текст е възстановен.');
+      }
+    });
+  }
+
+  // 1.18: Move a checklist item one visible position without changing its ID or checkmark.
+  // With “Само оставащите”, exchange only adjacent visible items; completed rows
+  // keep their existing array positions. No data migration or new storage keys.
+  function moveSubtask(taskId, subId, offset) {
+    if (offset !== -1 && offset !== 1) return;
+    const existing = tasks.find((task) => task.id === taskId);
+    if (!existing || existing.deletedAt || isFinished(existing)) return;
+    const visible = pendingOnlySubtasks.has(taskId)
+      ? existing.subtasks.filter((part) => !part.done) : existing.subtasks;
+    const visibleIndex = visible.findIndex((part) => part.id === subId);
+    const target = visible[visibleIndex + offset];
+    if (visibleIndex < 0 || !target) return;
+    const from = existing.subtasks.findIndex((part) => part.id === subId);
+    const to = existing.subtasks.findIndex((part) => part.id === target.id);
+    if (from === -1 || to === -1) return;
+    const reordered = existing.subtasks.slice();
+    [reordered[from], reordered[to]] = [reordered[to], reordered[from]];
+    const before = tasks;
+    const next = tasks.map((task) => task.id === taskId
+      ? { ...task, autoGenerated: false, subtasks: reordered } : task);
+    if (!saveTasks(next)) return;
+    const expectedRaw = lastSavedRaw;
+    showToast(offset < 0 ? 'Редът е преместен нагоре.' : 'Редът е преместен надолу.', {
+      label: 'Върни',
+      run: () => {
+        // Never undo after a newer write from another tab or action in this tab.
+        let stored;
+        try { stored = localStorage.getItem(TASKS_KEY); } catch { stored = null; }
+        if (lastSavedRaw !== expectedRaw || stored !== expectedRaw) {
+          showToast('Има по-нови промени. Връщането не е приложено.');
+          return;
+        }
+        if (saveTasks(before)) showToast('Подредбата е възстановена.');
       }
     });
   }
@@ -1971,6 +2018,7 @@
         if (button.dataset.action === 'edit-subtask') beginInlineSubtaskEdit(task.id, button.dataset.subId);
         if (button.dataset.action === 'cancel-subtask-edit') cancelInlineSubtaskEdit();
         if (button.dataset.action === 'subtask') toggleSubtask(task.id, button.dataset.subId);
+        if (button.dataset.action === 'subtask-move') moveSubtask(task.id, button.dataset.subId, Number(button.dataset.offset));
         if (button.dataset.action === 'subtasks-complete') setAllSubtasks(task.id, true);
         if (button.dataset.action === 'subtasks-reset') setAllSubtasks(task.id, false);
         if (button.dataset.action === 'pending-only') {

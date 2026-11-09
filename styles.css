@@ -579,3 +579,18 @@ textarea.text-input { resize: vertical; }
 .inline-edit-subtask-save { color:var(--accent-text); background:var(--accent-soft); }
 .inline-edit-subtask-cancel { color:var(--muted); background:var(--surface2); }
 @media (max-width:370px) { .inline-edit-subtask-form { flex-wrap:wrap; } .inline-edit-subtask-input { flex-basis:100%; } .inline-edit-subtask-form button { flex:1 1 auto; } }
+
+
+/* MyDay 1.18 — small accessible up/down controls for checklist order. */
+.subtask-reorder { display:flex; flex-direction:column; flex:0 0 32px; width:32px; gap:2px; }
+.subtask-reorder button { display:grid; place-items:center; height:25px; width:32px; min-height:25px;
+  border:1px solid var(--border); border-radius:6px; padding:0; background:var(--surface2);
+  color:var(--accent-text); font-size:17px; font-weight:800; line-height:1; touch-action:manipulation; }
+.subtask-reorder button:disabled { opacity:.24; cursor:default; }
+.subtask-reorder button:focus-visible { outline:2px solid var(--accent); outline-offset:1px; }
+@media (max-width:370px) {
+  .subtask-row { gap:3px; }
+  .subtask-reorder { flex-basis:30px; width:30px; }
+  .subtask-reorder button { width:30px; }
+  .subtask-rename-button { flex-basis:36px; width:36px; }
+}
