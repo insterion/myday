@@ -27,6 +27,13 @@
   const el = (id) => document.getElementById(id);
   const icon = (name) => `<svg class="icon" aria-hidden="true"><use href="#i-${name}"></use></svg>`;
   const MAX_SUBTASKS = 30;
+  // Formatting dates once per render, rather than constructing a formatter for each card,
+  // keeps longer task lists responsive on modest Android devices.
+  const shortDateFormatter = new Intl.DateTimeFormat('bg-BG', { day: 'numeric', month: 'short' });
+  const searchIndex = new WeakMap(); // Derived data only; never written to localStorage.
+  const checklistActions = new Set(['subtask', 'subtasks-complete', 'subtasks-reset', 'pending-only', 'expand']);
+  let checklistFocus = null;
+  let searchRenderTimer = null;
   const isFinished = (task) => task.done || task.skipped;
   // Never replace an unreadable localStorage value with an empty task list.
   let storageProblem = null; // 'damaged' | 'unavailable' | null
@@ -407,6 +414,56 @@
       '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
     })[char]);
   }
+  function searchText(task) {
+    let text = searchIndex.get(task);
+    if (text === undefined) {
+      text = (task.title + ' ' + task.note + ' ' + task.subtasks.map((part) => part.text).join(' '))
+        .toLocaleLowerCase('bg-BG');
+      searchIndex.set(task, text);
+    }
+    return text;
+  }
+
+  function rememberChecklistPosition(button) {
+    const action = button.dataset.action;
+    if (!checklistActions.has(action)) return;
+    const id = button.dataset.id;
+    const parts = [...el('taskList').querySelectorAll('button[data-action="subtask"]')]
+      .filter((part) => part.dataset.id === id);
+    checklistFocus = {
+      action, id, subId: button.dataset.subId || '',
+      index: parts.indexOf(button), top: button.getBoundingClientRect().top
+    };
+  }
+
+  function restoreChecklistPosition() {
+    const saved = checklistFocus;
+    checklistFocus = null;
+    if (!saved) return;
+    const controls = [...el('taskList').querySelectorAll('button[data-action]')]
+      .filter((button) => button.dataset.id === saved.id);
+    const exact = controls.find((button) => button.dataset.action === saved.action &&
+      (!saved.subId || button.dataset.subId === saved.subId));
+    const remaining = controls.filter((button) => button.dataset.action === 'subtask');
+    // A checked item may disappear under 'Само оставащите'. Focus its next
+    // item instead, or the checklist toggle if there are no visible items.
+    const fallback = remaining[Math.max(0, Math.min(saved.index, remaining.length - 1))]
+      || controls.find((button) => button.dataset.action === 'expand');
+    const target = exact || fallback;
+    if (!target) return;
+    target.focus({ preventScroll: true });
+    const delta = target.getBoundingClientRect().top - saved.top;
+    if (Math.abs(delta) > 2) window.scrollBy(0, delta);
+  }
+
+  function scheduleSearchRender() {
+    if (searchRenderTimer !== null) clearTimeout(searchRenderTimer);
+    searchRenderTimer = setTimeout(() => {
+      searchRenderTimer = null;
+      renderList();
+    }, 120);
+  }
+
   function prettyDate(value) {
     if (!value) return 'Без дата';
     const today = localDate();
@@ -414,8 +471,7 @@
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     if (value === localDate(tomorrow)) return 'Утре';
-    return new Intl.DateTimeFormat('bg-BG', { day: 'numeric', month: 'short' })
-      .format(new Date(`${value}T12:00:00`));
+    return shortDateFormatter.format(new Date(`${value}T12:00:00`));
   }
   function greeting() {
     const hour = new Date().getHours();
@@ -538,7 +594,7 @@
       if (view === 'done' && historyFilter === 'skipped' && !task.skipped) return false;
       if (view === 'calendar' && (isFinished(task) || task.date !== selectedDate)) return false;
       if (category !== 'all' && task.category !== category) return false;
-      if (q && !(task.title + ' ' + task.note + ' ' + task.subtasks.map((part) => part.text).join(' ')).toLocaleLowerCase('bg-BG').includes(q)) return false;
+      if (q && !searchText(task).includes(q)) return false;
       return true;
     });
     const prio = (task) => task.priority === 'high' ? 0 : 1;
@@ -653,7 +709,7 @@
     const count = tasks.filter((task) => {
       if (isFinished(task) || task.deletedAt || task.date) return false;
       if (category !== 'all' && category !== task.category) return false;
-      if (q && !(task.title + ' ' + task.note + ' ' + task.subtasks.map((part) => part.text).join(' ')).toLocaleLowerCase('bg-BG').includes(q)) return false;
+      if (q && !searchText(task).includes(q)) return false;
       return true;
     }).length;
     notice.hidden = !count;
@@ -678,8 +734,7 @@
     const entries = tasks.filter((task) => {
       if (task.deletedAt || !isFinished(task)) return false;
       if (category !== 'all' && task.category !== category) return false;
-      if (query && !(task.title + ' ' + task.note + ' ' + task.subtasks.map((part) => part.text).join(' '))
-        .toLocaleLowerCase('bg-BG').includes(query)) return false;
+      if (query && !searchText(task).includes(query)) return false;
       return true;
     });
     el('historyCountAll').textContent = entries.length;
@@ -691,6 +746,11 @@
   }
 
   function renderList() {
+    if (searchRenderTimer !== null) {
+      clearTimeout(searchRenderTimer);
+      searchRenderTimer = null;
+    }
+    try {
     el('sectionEyebrow').textContent = VIEWS[view][0];
     el('listTitle').textContent = view === 'calendar'
       ? `Задачи за ${new Intl.DateTimeFormat('bg-BG', { day: 'numeric', month: 'long' }).format(new Date(`${selectedDate}T12:00:00`))}`
@@ -732,6 +792,9 @@
       <h3>${title}</h3><p>${description}</p>
       ${!hasFilter && view !== 'done' ? '<button type="button" id="emptyAdd">+ Добави задача</button>' : ''}
     </div>`;
+    } finally {
+      restoreChecklistPosition();
+    }
   }
   function quickDefaultDate() {
     if (view === 'calendar') return selectedDate;
@@ -1620,7 +1683,7 @@
       const button = event.target.closest('button[data-calendar-date]');
       if (button) selectCalendarDate(button.dataset.calendarDate);
     });
-    el('searchInput').addEventListener('input', renderList);
+    el('searchInput').addEventListener('input', scheduleSearchRender);
     el('overdueMoveToday').addEventListener('click', () => rescheduleVisibleOverdue(0));
     el('overdueMoveTomorrow').addEventListener('click', () => rescheduleVisibleOverdue(1));
     el('viewUndated').addEventListener('click', () => {
@@ -1654,6 +1717,7 @@
       if (button) {
         const task = tasks.find((item) => item.id === button.dataset.id);
         if (!task) return;
+        rememberChecklistPosition(button);
         if (button.dataset.action === 'toggle') toggleTask(task.id);
         if (button.dataset.action === 'skip') skipOccurrence(task.id);
         if (button.dataset.action === 'delete') deleteTask(task.id);
